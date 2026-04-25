@@ -577,7 +577,7 @@ function updateDragHover(event) {
   }
 
   if (cell && (cell.classList.contains('row-header') || cell.classList.contains('row-drag-handle'))) {
-    setRowSwapTarget(rowWrapper);
+    setRowSwapTarget(rowWrapper, cell.classList.contains('row-drag-handle'), event);
     return;
   }
 
@@ -661,35 +661,34 @@ function showDragTip(event, text) {
 function hideDragTip() {
   if (!dragTip) return;
   dragTip.classList.add('hidden');
+  dragTip.classList.remove('swap-active');
 }
 
-function setRowSwapTarget(rowWrapper) {
+function setRowSwapTarget(rowWrapper, isSwapArea = false, event = null) {
   const rowIndex = Number(rowWrapper.dataset.row);
   if (dragSourceRow === null || rowIndex === dragSourceRow) return;
-  if (currentDragTarget?.type === 'row' && currentDragTarget.row === rowIndex) return;
+  if (currentDragTarget?.type === 'row' && currentDragTarget.row === rowIndex && currentDragTarget.swapArea === isSwapArea) return;
 
   clearDragTargetState();
   rowWrapper.classList.add('swap-target');
-  const header = rowWrapper.querySelector('.row-header');
-  if (header) {
-    header.dataset.originalLabel = header.textContent;
-    header.textContent = 'Swap';
-  }
   const handle = rowWrapper.querySelector('.row-drag-handle');
   if (handle) {
     handle.classList.add('swap-target');
   }
 
-  currentDragTarget = { type: 'row', row: rowIndex, rowWrapper };
+  currentDragTarget = { type: 'row', row: rowIndex, rowWrapper, swapArea: isSwapArea };
+  const tipText = isSwapArea ? '↕ swap now' : '↕ swap';
+  if (isSwapArea) {
+    dragTip?.classList.add('swap-active');
+  } else {
+    dragTip?.classList.remove('swap-active');
+  }
+  const tipEvent = event || { clientX: rowWrapper.getBoundingClientRect().left + 20, clientY: rowWrapper.getBoundingClientRect().top + 20 };
+  showDragTip(tipEvent, tipText);
 }
 
 function clearRowSwapTarget(rowWrapper) {
   rowWrapper.classList.remove('swap-target');
-  const header = rowWrapper.querySelector('.row-header');
-  if (header) {
-    header.textContent = header.dataset.originalLabel || `Row ${Number(rowWrapper.dataset.row) + 1}`;
-    delete header.dataset.originalLabel;
-  }
   const handle = rowWrapper.querySelector('.row-drag-handle');
   if (handle) {
     handle.classList.remove('swap-target');
@@ -706,10 +705,9 @@ function clearDragTargetState() {
 }
 
 function onRowDragEnter(event) {
-  const rowWrapper = event.currentTarget.closest('.matrix-row');
-  if (!rowWrapper) return;
-  if (rowWrapper.contains(event.relatedTarget)) return;
-  setRowSwapTarget(rowWrapper);
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  updateDragHover(event);
 }
 
 function onRowDragLeave(event) {
@@ -727,6 +725,18 @@ function onRowDrop(event) {
   dragSourceRow = null;
 
   if (Number.isNaN(sourceIndex) || sourceIndex === targetRow) {
+    clearDragTargetState();
+    return;
+  }
+
+  if (event.currentTarget.classList.contains('row-drag-handle')) {
+    swapRowsByIndex(sourceIndex, targetRow);
+    clearDragTargetState();
+    return;
+  }
+
+  if (event.currentTarget.classList.contains('row-header')) {
+    openRowActionModal(sourceIndex, targetRow);
     clearDragTargetState();
     return;
   }
