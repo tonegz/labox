@@ -270,10 +270,31 @@ p {
   opacity: 0.75;
 }
 
+.matrix-row.swap-target .row-header,
+.matrix-row.swap-target .row-drag-handle,
 .matrix-cell.row-header.drag-over,
 .matrix-cell.row-drag-handle.drag-over {
   background: #dbeafe;
   border-color: #bfdbfe;
+}
+
+.drag-tip {
+  position: absolute;
+  pointer-events: none;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #1d4ed8;
+  color: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
+  transform: translate(-50%, -100%);
+  z-index: 40;
+}
+
+.drag-tip.hidden {
+  display: none;
 }
 
 .matrix-cell input {

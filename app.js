@@ -45,8 +45,10 @@ const modalAddMultiplierButton = document.getElementById('modal-add-multiplier')
 const modalSwapRowsButton = document.getElementById('modal-swap-rows');
 const modalCancelActionButton = document.getElementById('modal-cancel-action');
 const rowMultiplierButtons = document.querySelectorAll('[data-multiplier]');
+const dragTip = document.getElementById('drag-tip');
 
 let dragSourceRow = null;
+let currentDragTarget = null;
 let isResizing = false;
 let resizeStartX = 0;
 let resizeStartY = 0;
@@ -67,6 +69,9 @@ function renderMatrix() {
     rowWrapper.className = 'matrix-row';
     rowWrapper.style.gridTemplateColumns = `auto auto repeat(${cols}, minmax(72px, 1fr))`;
     rowWrapper.dataset.row = rowIndex;
+    rowWrapper.addEventListener('dragover', onRowDragOver);
+    rowWrapper.addEventListener('dragenter', onRowDragEnter);
+    rowWrapper.addEventListener('dragleave', onRowDragLeave);
 
     const rowDragHandle = document.createElement('div');
     rowDragHandle.className = 'matrix-cell row-drag-handle';
@@ -96,6 +101,12 @@ function renderMatrix() {
     row.forEach((value, colIndex) => {
       const cell = document.createElement('div');
       cell.className = 'matrix-cell';
+      cell.dataset.row = rowIndex;
+      cell.dataset.col = colIndex;
+      cell.addEventListener('dragenter', onCellDragEnter);
+      cell.addEventListener('dragleave', onCellDragLeave);
+      cell.addEventListener('dragover', onRowDragOver);
+      cell.addEventListener('drop', onRowDrop);
 
       const input = document.createElement('input');
       input.type = 'number';
@@ -546,24 +557,201 @@ function onRowDragStart(event) {
 function onRowDragOver(event) {
   event.preventDefault();
   event.dataTransfer.dropEffect = 'move';
+  updateDragHover(event);
+}
+
+function updateDragHover(event) {
+  if (dragSourceRow === null) return;
+
+  const cell = event.target.closest('.matrix-cell');
+  const rowWrapper = event.target.closest('.matrix-row');
+  if (!rowWrapper) {
+    clearDragTargetState();
+    return;
+  }
+
+  const targetRow = Number(rowWrapper.dataset.row);
+  if (targetRow === dragSourceRow) {
+    clearDragTargetState();
+    return;
+  }
+
+  if (cell && (cell.classList.contains('row-header') || cell.classList.contains('row-drag-handle'))) {
+    setRowSwapTarget(rowWrapper);
+    return;
+  }
+
+  if (cell && typeof cell.dataset.col !== 'undefined') {
+    setCellDragTarget(cell, targetRow, Number(cell.dataset.col), event);
+    return;
+  }
+
+  clearDragTargetState();
+}
+
+function setCellDragTarget(cell, targetRow, targetCol, event) {
+  if (dragSourceRow === null) return;
+  if (currentDragTarget?.type === 'cell'
+      && currentDragTarget.row === targetRow
+      && currentDragTarget.col === targetCol) {
+    updateDragTipPosition(event);
+    return;
+  }
+
+  clearDragTargetState();
+
+  const sourceValue = Number(state.matrix[dragSourceRow][targetCol]);
+  const targetValue = Number(state.matrix[targetRow][targetCol]);
+  const isValidMultiple = sourceValue !== 0
+    && targetValue !== 0
+    && Number.isFinite(sourceValue)
+    && Number.isFinite(targetValue)
+    && Number.isInteger(targetValue / sourceValue);
+
+  let tipText = '?';
+  let factor = null;
+  if (isValidMultiple) {
+    const ratio = targetValue / sourceValue;
+    factor = -ratio;
+    tipText = `${factor >= 0 ? '+' : ''}${factor}`;
+  }
+
+  currentDragTarget = {
+    type: 'cell',
+    row: targetRow,
+    col: targetCol,
+    valid: isValidMultiple,
+    factor,
+    cell,
+  };
+
+  cell.classList.add('drag-over');
+  showDragTip(event, tipText);
+}
+
+function onCellDragEnter(event) {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  updateDragHover(event);
+}
+
+function onCellDragLeave(event) {
+  const currentRow = event.currentTarget.closest('.matrix-row');
+  if (currentRow && currentRow.contains(event.relatedTarget)) return;
+  event.currentTarget.classList.remove('drag-over');
+  clearDragTargetState();
+}
+
+function updateDragTipPosition(event) {
+  if (!dragTip) return;
+  const rect = matrixWrapper.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+  dragTip.style.left = `${x}px`;
+  dragTip.style.top = `${y - 12}px`;
+}
+
+function showDragTip(event, text) {
+  if (!dragTip) return;
+  dragTip.textContent = text;
+  dragTip.classList.remove('hidden');
+  updateDragTipPosition(event);
+}
+
+function hideDragTip() {
+  if (!dragTip) return;
+  dragTip.classList.add('hidden');
+}
+
+function setRowSwapTarget(rowWrapper) {
+  const rowIndex = Number(rowWrapper.dataset.row);
+  if (dragSourceRow === null || rowIndex === dragSourceRow) return;
+  if (currentDragTarget?.type === 'row' && currentDragTarget.row === rowIndex) return;
+
+  clearDragTargetState();
+  rowWrapper.classList.add('swap-target');
+  const header = rowWrapper.querySelector('.row-header');
+  if (header) {
+    header.dataset.originalLabel = header.textContent;
+    header.textContent = 'Swap';
+  }
+  const handle = rowWrapper.querySelector('.row-drag-handle');
+  if (handle) {
+    handle.classList.add('swap-target');
+  }
+
+  currentDragTarget = { type: 'row', row: rowIndex, rowWrapper };
+}
+
+function clearRowSwapTarget(rowWrapper) {
+  rowWrapper.classList.remove('swap-target');
+  const header = rowWrapper.querySelector('.row-header');
+  if (header) {
+    header.textContent = header.dataset.originalLabel || `Row ${Number(rowWrapper.dataset.row) + 1}`;
+    delete header.dataset.originalLabel;
+  }
+  const handle = rowWrapper.querySelector('.row-drag-handle');
+  if (handle) {
+    handle.classList.remove('swap-target');
+  }
+}
+
+function clearDragTargetState() {
+  if (currentDragTarget?.type === 'cell' && currentDragTarget.cell) {
+    currentDragTarget.cell.classList.remove('drag-over');
+  }
+  currentDragTarget = null;
+  hideDragTip();
+  matrixContainer.querySelectorAll('.matrix-row.swap-target').forEach(clearRowSwapTarget);
 }
 
 function onRowDragEnter(event) {
-  event.currentTarget.classList.add('drag-over');
+  const rowWrapper = event.currentTarget.closest('.matrix-row');
+  if (!rowWrapper) return;
+  if (rowWrapper.contains(event.relatedTarget)) return;
+  setRowSwapTarget(rowWrapper);
 }
 
 function onRowDragLeave(event) {
-  event.currentTarget.classList.remove('drag-over');
+  const rowWrapper = event.currentTarget.closest('.matrix-row');
+  if (!rowWrapper) return;
+  if (rowWrapper.contains(event.relatedTarget)) return;
+  rowWrapper.classList.remove('drag-over');
+  clearDragTargetState();
 }
 
 function onRowDrop(event) {
   event.preventDefault();
-  event.currentTarget.classList.remove('drag-over');
-  const rowIndex = Number(event.currentTarget.dataset.row);
+  const targetRow = Number(event.currentTarget.dataset.row);
   const sourceIndex = dragSourceRow !== null ? dragSourceRow : Number(event.dataTransfer.getData('text/plain'));
   dragSourceRow = null;
-  if (Number.isNaN(sourceIndex) || sourceIndex === rowIndex) return;
-  openRowActionModal(sourceIndex, rowIndex);
+
+  if (Number.isNaN(sourceIndex) || sourceIndex === targetRow) {
+    clearDragTargetState();
+    return;
+  }
+
+  const targetColAttr = event.currentTarget.dataset.col;
+  if (typeof targetColAttr !== 'undefined') {
+    const targetCol = Number(targetColAttr);
+    const sourceValue = Number(state.matrix[sourceIndex][targetCol]);
+    const targetValue = Number(state.matrix[targetRow][targetCol]);
+    const isValidMultiple = sourceValue !== 0 && targetValue !== 0 && Number.isFinite(sourceValue) && Number.isFinite(targetValue) && Number.isInteger(targetValue / sourceValue);
+
+    if (isValidMultiple) {
+      const factor = -(targetValue / sourceValue);
+      addScaledRowWithFactor(targetRow, sourceIndex, factor);
+      clearDragTargetState();
+      return;
+    }
+
+    openRowActionModal(sourceIndex, targetRow);
+    clearDragTargetState();
+    return;
+  }
+
+  swapRowsByIndex(sourceIndex, targetRow);
+  clearDragTargetState();
 }
 
 function openRowActionModal(source, target) {
@@ -641,6 +829,7 @@ matrixResizeHandle.addEventListener('pointerdown', onResizeStart);
 window.addEventListener('pointermove', onResizeMove);
 window.addEventListener('pointerup', onResizeEnd);
 window.addEventListener('pointercancel', onResizeEnd);
+window.addEventListener('dragend', clearDragTargetState);
 
 function updateButtons() {
   removeRowButton.disabled = state.matrix.length <= 1;
