@@ -65,8 +65,20 @@ function renderMatrix() {
   state.matrix.forEach((row, rowIndex) => {
     const rowWrapper = document.createElement('div');
     rowWrapper.className = 'matrix-row';
-    rowWrapper.style.gridTemplateColumns = `auto repeat(${cols}, minmax(72px, 1fr))`;
+    rowWrapper.style.gridTemplateColumns = `auto auto repeat(${cols}, minmax(72px, 1fr))`;
     rowWrapper.dataset.row = rowIndex;
+
+    const rowDragHandle = document.createElement('div');
+    rowDragHandle.className = 'matrix-cell row-drag-handle';
+    rowDragHandle.draggable = true;
+    rowDragHandle.dataset.row = rowIndex;
+    rowDragHandle.setAttribute('aria-label', `Drag row ${rowIndex + 1}`);
+    rowDragHandle.addEventListener('dragstart', onRowDragStart);
+    rowDragHandle.addEventListener('dragover', onRowDragOver);
+    rowDragHandle.addEventListener('drop', onRowDrop);
+    rowDragHandle.addEventListener('dragenter', onRowDragEnter);
+    rowDragHandle.addEventListener('dragleave', onRowDragLeave);
+    rowWrapper.appendChild(rowDragHandle);
 
     const rowHeader = document.createElement('div');
     rowHeader.className = 'matrix-cell row-header';
@@ -133,21 +145,24 @@ function updateResizeHandle() {
 
 function getResizeMetrics() {
   const firstRow = matrixContainer.querySelector('.matrix-row');
+  const dragHandle = firstRow?.querySelector('.row-drag-handle');
   const headerCell = firstRow?.querySelector('.row-header');
-  const firstDataCell = firstRow?.querySelector('.matrix-cell:nth-child(2)');
+  const firstDataCell = firstRow?.querySelector('.matrix-cell:nth-child(3)');
 
   return {
     rowHeight: firstRow?.getBoundingClientRect().height || 0,
     colWidth: firstDataCell?.getBoundingClientRect().width || 0,
+    dragHandleWidth: dragHandle?.getBoundingClientRect().width || 0,
     headerWidth: headerCell?.getBoundingClientRect().width || 0,
   };
 }
 
 function updateResizeOverlay(newRows, newCols) {
-  const { rowHeight, colWidth, headerWidth } = getResizeMetrics();
+  const { rowHeight, colWidth, dragHandleWidth, headerWidth } = getResizeMetrics();
   const width = headerWidth + newCols * colWidth;
   const height = newRows * rowHeight;
 
+  resizeOverlay.style.left = `${dragHandleWidth}px`;
   resizeOverlay.style.width = `${width}px`;
   resizeOverlay.style.height = `${height}px`;
   resizeDimensions.textContent = `${newRows}×${newCols}`;
@@ -465,6 +480,10 @@ function updateRowIndices() {
       header.textContent = `Row ${rowIndex + 1}`;
       header.dataset.row = rowIndex;
     }
+    const dragHandle = wrapper.querySelector('.row-drag-handle');
+    if (dragHandle) {
+      dragHandle.dataset.row = rowIndex;
+    }
     wrapper.querySelectorAll('input[type="number"]').forEach((input) => {
       input.dataset.row = rowIndex;
     });
@@ -476,6 +495,52 @@ function onRowDragStart(event) {
   dragSourceRow = rowIndex;
   event.dataTransfer.setData('text/plain', String(rowIndex));
   event.dataTransfer.effectAllowed = 'move';
+
+  const rowWrapper = event.currentTarget.closest('.matrix-row');
+  if (!rowWrapper) return;
+
+  const dragImage = rowWrapper.cloneNode(true);
+  dragImage.style.position = 'absolute';
+  dragImage.style.top = '-9999px';
+  dragImage.style.left = '-9999px';
+  dragImage.style.margin = '0';
+  dragImage.style.opacity = '0.95';
+  dragImage.style.pointerEvents = 'none';
+  dragImage.style.zIndex = '9999';
+
+  const sourceCells = Array.from(rowWrapper.querySelectorAll('.matrix-cell'));
+  const cloneCells = Array.from(dragImage.querySelectorAll('.matrix-cell'));
+  sourceCells.forEach((sourceCell, index) => {
+    const cloneCell = cloneCells[index];
+    if (!cloneCell) return;
+    const rect = sourceCell.getBoundingClientRect();
+    cloneCell.style.width = `${rect.width}px`;
+    cloneCell.style.minWidth = `${rect.width}px`;
+    cloneCell.style.maxWidth = `${rect.width}px`;
+    cloneCell.style.height = `${rect.height}px`;
+    cloneCell.style.boxSizing = 'border-box';
+  });
+
+  const inputs = dragImage.querySelectorAll('input');
+  const sourceInputs = rowWrapper.querySelectorAll('input');
+  inputs.forEach((input, index) => {
+    input.value = sourceInputs[index]?.value ?? input.value;
+  });
+
+  document.body.appendChild(dragImage);
+  const rowRect = rowWrapper.getBoundingClientRect();
+  dragImage.style.width = `${rowRect.width}px`;
+  dragImage.style.height = `${rowRect.height}px`;
+
+  const anchorX = event.clientX - rowRect.left;
+  const anchorY = event.clientY - rowRect.top;
+  event.dataTransfer.setDragImage(dragImage, anchorX, anchorY);
+
+  window.requestAnimationFrame(() => {
+    if (dragImage.parentNode) {
+      dragImage.parentNode.removeChild(dragImage);
+    }
+  });
 }
 
 function onRowDragOver(event) {
