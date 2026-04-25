@@ -82,6 +82,37 @@
     </section>
   </main>
 
+  <div id="row-action-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="row-action-title">
+    <div class="modal-content">
+      <h3 id="row-action-title">Choose row action</h3>
+      <p>
+        Dragged row <strong id="modal-source-row"></strong>
+        onto row <strong id="modal-target-row"></strong>.
+      </p>
+      <div class="modal-section">
+        <p class="modal-label">Add row with a multiplier</p>
+        <div class="shortcut-row">
+          <button type="button" data-multiplier="1">+1</button>
+          <button type="button" data-multiplier="2">+2</button>
+          <button type="button" data-multiplier="-1">-1</button>
+          <button type="button" data-multiplier="-2">-2</button>
+        </div>
+        <div class="custom-multiplier">
+          <label>
+            Custom multiplier
+            <input id="modal-custom-factor" type="number" step="any" value="1" />
+          </label>
+          <button id="modal-add-multiplier" type="button">Add with multiplier</button>
+        </div>
+      </div>
+      <div class="modal-section">
+        <p class="modal-label">Or swap rows</p>
+        <button id="modal-swap-rows" type="button">Swap rows</button>
+      </div>
+      <button id="modal-cancel-action" type="button" class="cancel-button">Cancel</button>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>
