@@ -269,6 +269,18 @@ function hasNonZeroRemovedCells(rows, cols) {
 
 function onNumberInputWheel(event) {
   event.preventDefault();
+
+  const scale = event.deltaMode === 1
+    ? 16
+    : event.deltaMode === 2
+      ? window.innerHeight
+      : 1;
+
+  window.scrollBy({
+    top: event.deltaY * scale,
+    left: 0,
+    behavior: 'auto',
+  });
 }
 
 function onCellChange(event) {
