@@ -4,7 +4,7 @@ Linear Algebra sandbox.
 
 ## Usage
 
-Open `index.html` in a browser to run the app.
+Open `index.html` in a browser to run the app locally, or just go to http://tonegz.github.io/labox.
 
 The app starts with a 3×3 matrix. You can:
 
