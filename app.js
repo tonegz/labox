@@ -545,6 +545,16 @@ resizeConfirmBackdrop.addEventListener('click', (event) => {
   }
 });
 
+window.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+
+  if (!rowActionModal.classList.contains('hidden')) {
+    closeRowActionModal();
+  } else if (!resizeConfirmBackdrop.classList.contains('hidden')) {
+    hideResizeConfirm();
+  }
+});
+
 matrixResizeHandle.addEventListener('pointerdown', onResizeStart);
 window.addEventListener('pointermove', onResizeMove);
 window.addEventListener('pointerup', onResizeEnd);
