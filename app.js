@@ -7,6 +7,15 @@ const state = {
 };
 
 const matrixContainer = document.getElementById('matrix-container');
+const matrixWrapper = document.getElementById('matrix-wrapper');
+const resizeOverlay = document.getElementById('resize-overlay');
+const resizeDimensions = document.getElementById('resize-dimensions');
+const resizeConfirmBackdrop = document.getElementById('resize-confirm-backdrop');
+const resizeConfirmModal = document.getElementById('resize-confirm-modal');
+const resizeConfirmDims = document.getElementById('resize-confirm-dims');
+const resizeConfirmRemove = document.getElementById('resize-confirm-remove');
+const resizeConfirmCancel = document.getElementById('resize-confirm-cancel');
+const matrixResizeHandle = document.getElementById('matrix-resize-handle');
 const matrixSizeLabel = document.getElementById('matrix-size');
 const matrixJson = document.getElementById('matrix-json');
 
@@ -38,27 +47,39 @@ const modalCancelActionButton = document.getElementById('modal-cancel-action');
 const rowMultiplierButtons = document.querySelectorAll('[data-multiplier]');
 
 let dragSourceRow = null;
+let isResizing = false;
+let resizeStartX = 0;
+let resizeStartY = 0;
+let resizeStartRows = 0;
+let resizeStartCols = 0;
+let currentResizeRows = 0;
+let currentResizeCols = 0;
+let pendingResize = null;
 
 function renderMatrix() {
   const rows = state.matrix.length;
   const cols = state.matrix[0]?.length ?? 0;
 
-  matrixContainer.style.gridTemplateColumns = `auto repeat(${cols}, minmax(72px, 1fr))`;
   matrixContainer.innerHTML = '';
 
   state.matrix.forEach((row, rowIndex) => {
+    const rowWrapper = document.createElement('div');
+    rowWrapper.className = 'matrix-row';
+    rowWrapper.style.gridTemplateColumns = `auto repeat(${cols}, minmax(72px, 1fr))`;
+    rowWrapper.dataset.row = rowIndex;
+
     const rowHeader = document.createElement('div');
     rowHeader.className = 'matrix-cell row-header';
     rowHeader.textContent = `Row ${rowIndex + 1}`;
     rowHeader.draggable = true;
     rowHeader.dataset.row = rowIndex;
     rowHeader.setAttribute('aria-label', `Drag row ${rowIndex + 1}`);
-    rowHeader.addEventListener('dragstart', (event) => onRowDragStart(event, rowIndex));
+    rowHeader.addEventListener('dragstart', onRowDragStart);
     rowHeader.addEventListener('dragover', onRowDragOver);
-    rowHeader.addEventListener('drop', (event) => onRowDrop(event, rowIndex));
+    rowHeader.addEventListener('drop', onRowDrop);
     rowHeader.addEventListener('dragenter', onRowDragEnter);
     rowHeader.addEventListener('dragleave', onRowDragLeave);
-    matrixContainer.appendChild(rowHeader);
+    rowWrapper.appendChild(rowHeader);
 
     row.forEach((value, colIndex) => {
       const cell = document.createElement('div');
@@ -73,8 +94,10 @@ function renderMatrix() {
 
       input.addEventListener('input', onCellChange);
       cell.appendChild(input);
-      matrixContainer.appendChild(cell);
+      rowWrapper.appendChild(cell);
     });
+
+    matrixContainer.appendChild(rowWrapper);
   });
 
   matrixSizeLabel.textContent = `Matrix size: ${rows} × ${cols}`;
@@ -99,6 +122,148 @@ function renderMatrix() {
   }
 
   updateButtons();
+  updateResizeHandle();
+}
+
+function updateResizeHandle() {
+  const matrixRect = matrixContainer.getBoundingClientRect();
+  matrixWrapper.style.width = `${matrixRect.width}px`;
+}
+
+function getResizeMetrics() {
+  const firstRow = matrixContainer.querySelector('.matrix-row');
+  const headerCell = firstRow?.querySelector('.row-header');
+  const firstDataCell = firstRow?.querySelector('.matrix-cell:nth-child(2)');
+
+  return {
+    rowHeight: firstRow?.getBoundingClientRect().height || 0,
+    colWidth: firstDataCell?.getBoundingClientRect().width || 0,
+    headerWidth: headerCell?.getBoundingClientRect().width || 0,
+  };
+}
+
+function updateResizeOverlay(newRows, newCols) {
+  const { rowHeight, colWidth, headerWidth } = getResizeMetrics();
+  const width = headerWidth + newCols * colWidth;
+  const height = newRows * rowHeight;
+
+  resizeOverlay.style.width = `${width}px`;
+  resizeOverlay.style.height = `${height}px`;
+  resizeDimensions.textContent = `${newRows}×${newCols}`;
+  resizeOverlay.classList.remove('hidden');
+
+  currentResizeRows = newRows;
+  currentResizeCols = newCols;
+}
+
+function onResizeStart(event) {
+  event.preventDefault();
+  isResizing = true;
+  matrixResizeHandle.setPointerCapture(event.pointerId);
+  resizeStartX = event.clientX;
+  resizeStartY = event.clientY;
+  resizeStartRows = state.matrix.length;
+  resizeStartCols = state.matrix[0]?.length ?? 0;
+  updateResizeHandle();
+  updateResizeOverlay(resizeStartRows, resizeStartCols);
+}
+
+function onResizeMove(event) {
+  if (!isResizing) return;
+
+  const { rowHeight, colWidth } = getResizeMetrics();
+  if (!rowHeight || !colWidth) return;
+
+  const deltaX = event.clientX - resizeStartX;
+  const deltaY = event.clientY - resizeStartY;
+  const rowDelta = Math.round(deltaY / rowHeight);
+  const colDelta = Math.round(deltaX / colWidth);
+
+  const newRows = Math.max(1, resizeStartRows + rowDelta);
+  const newCols = Math.max(1, resizeStartCols + colDelta);
+  updateResizeOverlay(newRows, newCols);
+}
+
+function onResizeEnd(event) {
+  if (!isResizing) return;
+  isResizing = false;
+  matrixResizeHandle.releasePointerCapture(event.pointerId);
+  resizeOverlay.classList.add('hidden');
+
+  const newRows = currentResizeRows;
+  const newCols = currentResizeCols;
+  const oldRows = state.matrix.length;
+  const oldCols = state.matrix[0]?.length ?? 0;
+
+  if (newRows === oldRows && newCols === oldCols) return;
+
+  if ((newRows < oldRows || newCols < oldCols) && hasNonZeroRemovedCells(newRows, newCols)) {
+    pendingResize = { rows: newRows, cols: newCols };
+    showResizeConfirm(newRows, newCols);
+    return;
+  }
+
+  resizeMatrix(newRows, newCols);
+}
+
+function showResizeConfirm(rows, cols) {
+  resizeConfirmDims.textContent = `${rows}×${cols}`;
+  resizeConfirmBackdrop.classList.remove('hidden');
+}
+
+function hideResizeConfirm() {
+  resizeConfirmBackdrop.classList.add('hidden');
+  pendingResize = null;
+}
+
+function applyPendingResize() {
+  if (!pendingResize) return;
+  resizeMatrix(pendingResize.rows, pendingResize.cols);
+  pendingResize = null;
+}
+
+function resizeMatrix(rows, cols) {
+  const currentRows = state.matrix.length;
+  const currentCols = state.matrix[0]?.length ?? 0;
+
+  state.matrix.forEach((row) => {
+    if (cols > currentCols) {
+      row.push(...Array.from({ length: cols - currentCols }, () => 0));
+    } else if (cols < currentCols) {
+      row.splice(cols);
+    }
+  });
+
+  if (rows > currentRows) {
+    for (let i = currentRows; i < rows; i += 1) {
+      state.matrix.push(Array.from({ length: cols }, () => 0));
+    }
+  } else if (rows < currentRows) {
+    state.matrix.splice(rows);
+  }
+
+  renderMatrix();
+}
+
+function hasNonZeroRemovedCells(rows, cols) {
+  const currentRows = state.matrix.length;
+  const currentCols = state.matrix[0]?.length ?? 0;
+
+  for (let r = rows; r < currentRows; r += 1) {
+    if (state.matrix[r].some((value) => value !== 0)) {
+      return true;
+    }
+  }
+
+  for (let r = 0; r < Math.min(rows, currentRows); r += 1) {
+    for (let c = cols; c < currentCols; c += 1) {
+      if (state.matrix[r][c] !== 0) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 function onCellChange(event) {
@@ -145,8 +310,7 @@ function swapRows() {
   const a = Number(swapRowA.value);
   const b = Number(swapRowB.value);
   if (a === b) return;
-  [state.matrix[a], state.matrix[b]] = [state.matrix[b], state.matrix[a]];
-  renderMatrix();
+  swapRowsByIndex(a, b);
 }
 
 function ensureDistinctSwapSelection(changedSelect, otherSelect, otherOnRight = true) {
@@ -197,11 +361,101 @@ function addScaledRowWithFactor(target, source, factor) {
 
 function swapRowsByIndex(a, b) {
   if (a === b) return;
+
+  const rowWrappers = Array.from(matrixContainer.querySelectorAll('.matrix-row'));
+  const rowA = rowWrappers[a];
+  const rowB = rowWrappers[b];
+  if (!rowA || !rowB) {
+    [state.matrix[a], state.matrix[b]] = [state.matrix[b], state.matrix[a]];
+    renderMatrix();
+    return;
+  }
+
+  const firstRectA = rowA.getBoundingClientRect();
+  const firstRectB = rowB.getBoundingClientRect();
+
   [state.matrix[a], state.matrix[b]] = [state.matrix[b], state.matrix[a]];
-  renderMatrix();
+
+  const nextA = rowA.nextSibling;
+  const nextB = rowB.nextSibling;
+
+  if (nextA === rowB) {
+    matrixContainer.insertBefore(rowB, rowA);
+  } else if (nextB === rowA) {
+    matrixContainer.insertBefore(rowA, rowB);
+  } else {
+    matrixContainer.insertBefore(rowB, nextA);
+    matrixContainer.insertBefore(rowA, nextB);
+  }
+
+  updateButtons();
+
+  const lastRectA = rowA.getBoundingClientRect();
+  const lastRectB = rowB.getBoundingClientRect();
+
+  const deltaA = {
+    x: firstRectA.left - lastRectA.left,
+    y: firstRectA.top - lastRectA.top,
+  };
+  const deltaB = {
+    x: firstRectB.left - lastRectB.left,
+    y: firstRectB.top - lastRectB.top,
+  };
+
+  rowA.style.transition = 'none';
+  rowB.style.transition = 'none';
+  rowA.style.transform = `translate(${deltaA.x}px, ${deltaA.y}px)`;
+  rowB.style.transform = `translate(${deltaB.x}px, ${deltaB.y}px)`;
+
+  requestAnimationFrame(() => {
+    rowA.style.transition = 'transform 300ms ease';
+    rowB.style.transition = 'transform 300ms ease';
+    rowA.style.transform = '';
+    rowB.style.transform = '';
+  });
+
+  function cleanup() {
+    rowA.style.transition = '';
+    rowA.style.transform = '';
+    rowB.style.transition = '';
+    rowB.style.transform = '';
+    updateRowIndices();
+    flashRowHeaders(rowA, rowB);
+    rowA.removeEventListener('transitionend', cleanup);
+    rowB.removeEventListener('transitionend', cleanup);
+  }
+
+  rowA.addEventListener('transitionend', cleanup);
+  rowB.addEventListener('transitionend', cleanup);
 }
 
-function onRowDragStart(event, rowIndex) {
+function flashRowHeaders(...wrappers) {
+  wrappers.forEach((wrapper) => {
+    const header = wrapper.querySelector('.row-header');
+    if (!header) return;
+    header.classList.add('flash');
+    window.setTimeout(() => {
+      header.classList.remove('flash');
+    }, 500);
+  });
+}
+
+function updateRowIndices() {
+  const rowWrappers = Array.from(matrixContainer.querySelectorAll('.matrix-row'));
+  rowWrappers.forEach((wrapper, rowIndex) => {
+    const header = wrapper.querySelector('.row-header');
+    if (header) {
+      header.textContent = `Row ${rowIndex + 1}`;
+      header.dataset.row = rowIndex;
+    }
+    wrapper.querySelectorAll('input[type="number"]').forEach((input) => {
+      input.dataset.row = rowIndex;
+    });
+  });
+}
+
+function onRowDragStart(event) {
+  const rowIndex = Number(event.currentTarget.dataset.row);
   dragSourceRow = rowIndex;
   event.dataTransfer.setData('text/plain', String(rowIndex));
   event.dataTransfer.effectAllowed = 'move';
@@ -220,9 +474,10 @@ function onRowDragLeave(event) {
   event.currentTarget.classList.remove('drag-over');
 }
 
-function onRowDrop(event, rowIndex) {
+function onRowDrop(event) {
   event.preventDefault();
   event.currentTarget.classList.remove('drag-over');
+  const rowIndex = Number(event.currentTarget.dataset.row);
   const sourceIndex = dragSourceRow !== null ? dragSourceRow : Number(event.dataTransfer.getData('text/plain'));
   dragSourceRow = null;
   if (Number.isNaN(sourceIndex) || sourceIndex === rowIndex) return;
@@ -274,6 +529,26 @@ rowActionModal.addEventListener('click', (event) => {
     closeRowActionModal();
   }
 });
+
+resizeConfirmRemove.addEventListener('click', () => {
+  applyPendingResize();
+  hideResizeConfirm();
+});
+
+resizeConfirmCancel.addEventListener('click', () => {
+  hideResizeConfirm();
+});
+
+resizeConfirmBackdrop.addEventListener('click', (event) => {
+  if (event.target === resizeConfirmBackdrop) {
+    hideResizeConfirm();
+  }
+});
+
+matrixResizeHandle.addEventListener('pointerdown', onResizeStart);
+window.addEventListener('pointermove', onResizeMove);
+window.addEventListener('pointerup', onResizeEnd);
+window.addEventListener('pointercancel', onResizeEnd);
 
 function updateButtons() {
   removeRowButton.disabled = state.matrix.length <= 1;

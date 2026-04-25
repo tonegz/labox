@@ -72,7 +72,13 @@
     <section class="matrix-panel">
       <div class="panel matrix-panel-inner">
         <h2>Matrix editor</h2>
-        <div id="matrix-container" class="matrix-container"></div>
+        <div id="matrix-wrapper" class="matrix-wrapper">
+          <div id="matrix-container" class="matrix-container"></div>
+          <div id="resize-overlay" class="resize-overlay hidden">
+            <span id="resize-dimensions" class="resize-dimensions"></span>
+          </div>
+          <div id="matrix-resize-handle" class="matrix-resize-handle" title="Resize matrix"></div>
+        </div>
       </div>
       <div class="panel info-panel">
         <h2>Matrix summary</h2>
@@ -110,6 +116,16 @@
         <button id="modal-swap-rows" type="button">Swap rows</button>
       </div>
       <button id="modal-cancel-action" type="button" class="cancel-button">Cancel</button>
+    </div>
+  </div>
+
+  <div id="resize-confirm-backdrop" class="modal hidden" role="dialog" aria-modal="true">
+    <div id="resize-confirm-modal" class="modal-content resize-confirm-modal" role="document">
+      <p>Reducing the matrix to <strong id="resize-confirm-dims"></strong> will remove some non-empty cells.</p>
+      <div class="confirm-actions">
+        <button id="resize-confirm-remove" type="button">Remove</button>
+        <button id="resize-confirm-cancel" type="button" class="cancel-button">Cancel</button>
+      </div>
     </div>
   </div>
 

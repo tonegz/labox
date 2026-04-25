@@ -62,26 +62,143 @@ p {
   overflow-x: auto;
 }
 
+.matrix-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
 .matrix-container {
   display: inline-grid;
-  gap: 4px;
-  padding: 8px 0;
+  gap: 0;
+  padding: 0;
+}
+
+.resize-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 2px dashed #2563eb;
+  background: rgba(59, 130, 246, 0.08);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.resize-overlay.hidden {
+  display: none;
+}
+
+.resize-dimensions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #2563eb;
+  color: #ffffff;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  z-index: 3;
+}
+
+.resize-confirm-modal {
+  width: auto;
+  max-width: 300px;
+  min-width: 240px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 20px;
+  box-shadow: 0 20px 35px rgba(15, 23, 42, 0.22);
+  padding: 20px;
+  z-index: 5;
+}
+
+.resize-confirm-modal p {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  color: #111827;
+}
+
+.confirm-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.resize-confirm-modal button {
+  min-width: 98px;
+  padding: 0.65rem 1rem;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.resize-confirm-modal .cancel-button {
+  width: auto;
+  margin-top: 0;
+}
+
+.resize-confirm-modal.hidden {
+  display: none;
+}
+
+.matrix-resize-handle {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 22px;
+  height: 22px;
+  cursor: nwse-resize;
+  z-index: 4;
+}
+
+.matrix-resize-handle::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  border-right: 2px solid #2563eb;
+  border-bottom: 2px solid #2563eb;
+}
+
+.matrix-resize-handle:hover::before {
+  border-color: #1d4ed8;
 }
 
 .matrix-row {
-  display: contents;
+  display: grid;
+  width: 100%;
+  gap: 0;
+  align-items: stretch;
+  position: relative;
+  transition: transform 300ms ease;
+  will-change: transform;
 }
 
 .matrix-cell {
   width: 72px;
+  height: 72px;
+  border-left: 1px solid #d1d5db;
+  border-top: 1px solid #d1d5db;
+  border-radius: 0;
+  box-sizing: border-box;
+}
+
+.matrix-row:last-child .matrix-cell {
+  border-bottom: 1px solid #d1d5db;
+}
+
+.matrix-cell:last-child {
+  border-right: 1px solid #d1d5db;
 }
 
 .matrix-cell.row-header {
-  min-width: 96px;
-  padding: 12px 14px;
-  border-radius: 14px;
+  width: 72px;
+  min-width: 72px;
+  padding: 0;
+  border-radius: 0;
   background: #eef2ff;
-  border: 1px solid #dbeafe;
   color: #1e3a8a;
   font-weight: 700;
   display: flex;
@@ -98,16 +215,19 @@ p {
 
 .matrix-cell input {
   width: 100%;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid #d1d5db;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
   font-size: 1rem;
   text-align: center;
+  box-sizing: border-box;
+  border-radius: 0;
 }
 
 .matrix-cell input:focus {
-  outline: 3px solid rgba(59, 130, 246, 0.25);
-  border-color: #3b82f6;
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.25);
 }
 
 .button-row,
@@ -156,7 +276,19 @@ input[type="number"] {
   background: #ffffff;
 }
 
+.matrix-cell input[type="number"] {
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+}
+
 select.flash {
+  animation: flash-select 0.5s ease-out;
+}
+
+.row-header.flash {
   animation: flash-select 0.5s ease-out;
 }
 
