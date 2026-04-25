@@ -15,75 +15,78 @@
       </div>
     </header>
 
-    <section class="controls">
-      <div class="panel">
-        <h2>Matrix controls</h2>
-        <div class="button-row">
-          <button id="add-row">Add Row</button>
-          <button id="remove-row">Remove Row</button>
-          <button id="add-col">Add Column</button>
-          <button id="remove-col">Remove Column</button>
-        </div>
-        <p class="matrix-size" id="matrix-size"></p>
-      </div>
-
-      <div class="panel">
-        <h2>Row transformations</h2>
-        <div class="transform-group">
-          <label>
-            Swap row
-            <select id="swap-row-a"></select>
-            with
-            <select id="swap-row-b"></select>
-          </label>
-          <button id="swap-rows">Swap</button>
-        </div>
-
-        <div class="transform-group">
-          <label>
-            Scale row
-            <select id="scale-row"></select>
-          </label>
-          <label>
-            by
-            <input id="scale-factor" type="number" step="any" value="1" />
-          </label>
-          <button id="scale-row-btn">Apply</button>
-        </div>
-
-        <div class="transform-group">
-          <label>
-            Target row
-            <select id="target-row"></select>
-          </label>
-          <label>
-            Source row
-            <select id="source-row"></select>
-          </label>
-          <label>
-            factor
-            <input id="add-factor" type="number" step="any" value="1" />
-          </label>
-          <button id="add-row-btn">Add</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="matrix-panel">
-      <div class="panel matrix-panel-inner">
-        <h2>Matrix editor</h2>
-        <div id="matrix-wrapper" class="matrix-wrapper">
-          <div id="matrix-container" class="matrix-container"></div>
-          <div id="resize-overlay" class="resize-overlay hidden">
-            <span id="resize-dimensions" class="resize-dimensions"></span>
+    <section class="dashboard-grid">
+      <div class="dashboard-column dashboard-column-left">
+        <div class="panel matrix-editor-panel matrix-panel-inner">
+          <h2>Matrix editor</h2>
+          <div id="matrix-wrapper" class="matrix-wrapper">
+            <div id="matrix-container" class="matrix-container"></div>
+            <div id="resize-overlay" class="resize-overlay hidden">
+              <span id="resize-dimensions" class="resize-dimensions"></span>
+            </div>
+            <div id="matrix-resize-handle" class="matrix-resize-handle" title="Resize matrix"></div>
           </div>
-          <div id="matrix-resize-handle" class="matrix-resize-handle" title="Resize matrix"></div>
+        </div>
+
+        <div class="panel row-transform-panel">
+          <h2>Row transformations</h2>
+          <div class="transform-group">
+            <label>
+              Swap row
+              <select id="swap-row-a"></select>
+              with
+              <select id="swap-row-b"></select>
+            </label>
+            <button id="swap-rows">Swap</button>
+          </div>
+
+          <div class="transform-group">
+            <label>
+              Scale row
+              <select id="scale-row"></select>
+            </label>
+            <label>
+              by
+              <input id="scale-factor" type="number" step="any" value="1" />
+            </label>
+            <button id="scale-row-btn">Apply</button>
+          </div>
+
+          <div class="transform-group">
+            <label>
+              Target row
+              <select id="target-row"></select>
+            </label>
+            <label>
+              Source row
+              <select id="source-row"></select>
+            </label>
+            <label>
+              factor
+              <input id="add-factor" type="number" step="any" value="1" />
+            </label>
+            <button id="add-row-btn">Add</button>
+          </div>
         </div>
       </div>
-      <div class="panel info-panel">
-        <h2>Matrix summary</h2>
-        <p>Use the buttons above to modify the matrix and perform row transformations.</p>
-        <pre id="matrix-json" class="matrix-json"></pre>
+
+      <div class="dashboard-column dashboard-column-right">
+        <div class="panel matrix-controls-panel">
+          <h2>Matrix controls</h2>
+          <div class="button-row">
+            <button id="add-row">Add Row</button>
+            <button id="remove-row">Remove Row</button>
+            <button id="add-col">Add Column</button>
+            <button id="remove-col">Remove Column</button>
+          </div>
+          <p class="matrix-size" id="matrix-size"></p>
+        </div>
+
+        <div class="panel info-panel matrix-summary-panel">
+          <h2>Matrix summary</h2>
+          <p>Use the buttons above to modify the matrix and perform row transformations.</p>
+          <pre id="matrix-json" class="matrix-json"></pre>
+        </div>
       </div>
     </section>
   </main>

@@ -35,15 +35,24 @@ p {
   color: #4b5563;
 }
 
-.controls,
-.matrix-panel {
+.dashboard-grid {
   display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+  margin-bottom: 20px;
+}
+
+.dashboard-column {
+  display: grid;
+}
+
+.dashboard-column-left {
   gap: 20px;
 }
 
-.controls {
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  margin-bottom: 20px;
+.dashboard-column-right {
+  gap: 20px;
 }
 
 .panel {
@@ -54,12 +63,23 @@ p {
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
 }
 
-.matrix-panel {
-  grid-template-columns: 1.5fr 1fr;
-}
-
 .matrix-panel-inner {
   overflow-x: auto;
+}
+
+.matrix-controls-panel,
+.matrix-summary-panel {
+  min-width: 0;
+}
+
+.matrix-controls-panel {
+  max-width: 420px;
+}
+
+@media (max-width: 900px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .matrix-wrapper {
