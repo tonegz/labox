@@ -192,13 +192,13 @@ p {
   right: 0;
   bottom: 0;
   width: 14px;
-  height: 14px;
-  border-right: 2px solid #2563eb;
-  border-bottom: 2px solid #2563eb;
+height: 14px;
+  border-right: 3px solid #8d9bba;
+  border-bottom: 3px solid #8d9bba;
 }
 
 .matrix-resize-handle:hover::before {
-  border-color: #1d4ed8;
+  border-color: #8d9bba;
 }
 
 .matrix-row {
