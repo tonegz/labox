@@ -93,6 +93,7 @@ function renderMatrix() {
       input.dataset.col = colIndex;
 
       input.addEventListener('input', onCellChange);
+      input.addEventListener('wheel', onNumberInputWheel, { passive: false });
       cell.appendChild(input);
       rowWrapper.appendChild(cell);
     });
@@ -264,6 +265,10 @@ function hasNonZeroRemovedCells(rows, cols) {
   }
 
   return false;
+}
+
+function onNumberInputWheel(event) {
+  event.preventDefault();
 }
 
 function onCellChange(event) {
