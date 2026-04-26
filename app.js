@@ -784,9 +784,17 @@ function openRowActionModal(source, target) {
   modalSourceRow.dataset.source = source;
   modalTargetRow.dataset.target = target;
   modalCustomFactor.value = '1';
+  updateModalAddButton();
   modalReturnFocusTo = document.activeElement;
   rowActionModal.classList.remove('hidden');
   modalCancelActionButton.focus();
+}
+
+function updateModalAddButton() {
+  const factor = Number(modalCustomFactor.value);
+  modalAddMultiplierButton.disabled = modalCustomFactor.value === ''
+    || !Number.isFinite(factor)
+    || factor === 0;
 }
 
 function closeRowActionModal() {
@@ -870,6 +878,8 @@ modalAddMultiplierButton.addEventListener('click', () => {
   applyRowAction('add', Number(modalCustomFactor.value));
 });
 
+modalCustomFactor.addEventListener('input', updateModalAddButton);
+
 modalSwapRowsButton.addEventListener('click', () => {
   applyRowAction('swap');
 });
@@ -923,6 +933,19 @@ function updateButtons() {
 
   const sameRowSelected = swapRowA.value === swapRowB.value;
   swapRowsButton.disabled = sameRowSelected || state.matrix.length <= 1;
+
+  const scaleFactor = Number(scaleFactorInput.value);
+  scaleRowButton.disabled = scaleFactorInput.value === ''
+    || !Number.isFinite(scaleFactor)
+    || scaleFactor === 0;
+
+  const addFactor = Number(addFactorInput.value);
+  const sameAddRow = targetRowSelect.value === sourceRowSelect.value;
+  addRowButtonTransform.disabled = addFactorInput.value === ''
+    || !Number.isFinite(addFactor)
+    || addFactor === 0
+    || sameAddRow
+    || state.matrix.length <= 1;
 }
 
 swapRowA.addEventListener('change', () => {
@@ -934,6 +957,11 @@ swapRowB.addEventListener('change', () => {
   ensureDistinctSwapSelection(swapRowB, swapRowA, false);
   updateButtons();
 });
+
+scaleFactorInput.addEventListener('input', updateButtons);
+addFactorInput.addEventListener('input', updateButtons);
+targetRowSelect.addEventListener('change', updateButtons);
+sourceRowSelect.addEventListener('change', updateButtons);
 
 addRowButton.addEventListener('click', addRow);
 removeRowButton.addEventListener('click', removeRow);
