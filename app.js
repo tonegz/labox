@@ -297,19 +297,9 @@ function hasNonZeroRemovedCells(rows, cols) {
 }
 
 function onNumberInputWheel(event) {
+  if (document.activeElement !== event.currentTarget) return;
   event.preventDefault();
-
-  const scale = event.deltaMode === 1
-    ? 16
-    : event.deltaMode === 2
-      ? window.innerHeight
-      : 1;
-
-  window.scrollBy({
-    top: event.deltaY * scale,
-    left: 0,
-    behavior: 'auto',
-  });
+  event.currentTarget.blur();
 }
 
 function onCellFocus(event) {
