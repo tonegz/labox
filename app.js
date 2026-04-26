@@ -111,11 +111,14 @@ function renderMatrix() {
       const input = document.createElement('input');
       input.type = 'number';
       input.step = 'any';
+      input.placeholder = '0';
       input.value = value;
       input.dataset.row = rowIndex;
       input.dataset.col = colIndex;
 
       input.addEventListener('input', onCellChange);
+      input.addEventListener('focus', onCellFocus);
+      input.addEventListener('blur', onCellBlur);
       input.addEventListener('wheel', onNumberInputWheel, { passive: false });
       cell.appendChild(input);
       rowWrapper.appendChild(cell);
@@ -309,18 +312,36 @@ function onNumberInputWheel(event) {
   });
 }
 
+function onCellFocus(event) {
+  event.target.select();
+}
+
+function onCellBlur(event) {
+  const input = event.target;
+  const rowIndex = Number(input.dataset.row);
+  const colIndex = Number(input.dataset.col);
+  if (input.value === '') {
+    state.matrix[rowIndex][colIndex] = 0;
+    input.value = '0';
+    matrixJson.textContent = JSON.stringify(state.matrix, null, 2);
+  }
+}
+
 function onCellChange(event) {
   const input = event.target;
   const rowIndex = Number(input.dataset.row);
   const colIndex = Number(input.dataset.col);
-  const numericValue = Number(input.value);
 
-  if (!Number.isNaN(numericValue)) {
-    state.matrix[rowIndex][colIndex] = numericValue;
-  } else {
+  if (input.value === '') {
     state.matrix[rowIndex][colIndex] = 0;
+    matrixJson.textContent = JSON.stringify(state.matrix, null, 2);
+    return;
   }
 
+  const numericValue = Number(input.value);
+  if (!Number.isFinite(numericValue)) return;
+
+  state.matrix[rowIndex][colIndex] = numericValue;
   matrixJson.textContent = JSON.stringify(state.matrix, null, 2);
 }
 

@@ -325,6 +325,11 @@ height: 14px;
   margin: 0;
 }
 
+.matrix-cell input::placeholder {
+  color: #9ca3af;
+  opacity: 1;
+}
+
 .matrix-cell input:focus {
   outline: none;
   box-shadow: none;
