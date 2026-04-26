@@ -245,6 +245,7 @@ height: 14px;
   justify-content: flex-start;
   cursor: grab;
   user-select: none;
+  touch-action: none;
 }
 
 .matrix-cell.row-drag-handle {
@@ -257,6 +258,7 @@ height: 14px;
   background: #eef2ff;
   cursor: grab;
   position: relative;
+  touch-action: none;
 }
 
 .matrix-cell.row-drag-handle::before {
