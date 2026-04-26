@@ -558,11 +558,11 @@ function onRowDragStart(event) {
   const anchorY = event.clientY - rowRect.top;
   event.dataTransfer.setDragImage(dragImage, anchorX, anchorY);
 
-  window.requestAnimationFrame(() => {
+  window.setTimeout(() => {
     if (dragImage.parentNode) {
       dragImage.parentNode.removeChild(dragImage);
     }
-  });
+  }, 0);
 }
 
 function onRowDragOver(event) {
