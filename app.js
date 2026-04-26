@@ -238,12 +238,15 @@ function onResizeEnd(event) {
 
 function showResizeConfirm(rows, cols) {
   resizeConfirmDims.textContent = `${rows}×${cols}`;
+  modalReturnFocusTo = document.activeElement;
   resizeConfirmBackdrop.classList.remove('hidden');
+  resizeConfirmCancel.focus();
 }
 
 function hideResizeConfirm() {
   resizeConfirmBackdrop.classList.add('hidden');
   pendingResize = null;
+  restoreFocusFromModal();
 }
 
 function applyPendingResize() {
@@ -781,11 +784,69 @@ function openRowActionModal(source, target) {
   modalSourceRow.dataset.source = source;
   modalTargetRow.dataset.target = target;
   modalCustomFactor.value = '1';
+  modalReturnFocusTo = document.activeElement;
   rowActionModal.classList.remove('hidden');
+  modalCancelActionButton.focus();
 }
 
 function closeRowActionModal() {
   rowActionModal.classList.add('hidden');
+  restoreFocusFromModal();
+}
+
+let modalReturnFocusTo = null;
+
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
+
+function getFocusable(container) {
+  return Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR))
+    .filter((el) => !el.hasAttribute('hidden') && el.offsetParent !== null);
+}
+
+function focusFirstIn(container) {
+  const focusable = getFocusable(container);
+  if (focusable.length > 0) focusable[0].focus();
+}
+
+function getActiveModal() {
+  if (!rowActionModal.classList.contains('hidden')) return rowActionModal;
+  if (!resizeConfirmBackdrop.classList.contains('hidden')) return resizeConfirmBackdrop;
+  return null;
+}
+
+function restoreFocusFromModal() {
+  const target = modalReturnFocusTo;
+  modalReturnFocusTo = null;
+  if (target && typeof target.focus === 'function' && document.body.contains(target)) {
+    target.focus();
+  }
+}
+
+function trapTab(event) {
+  if (event.key !== 'Tab') return;
+  const modal = getActiveModal();
+  if (!modal) return;
+  const focusable = getFocusable(modal);
+  if (focusable.length === 0) {
+    event.preventDefault();
+    return;
+  }
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
 }
 
 function applyRowAction(action, factor) {
@@ -837,6 +898,10 @@ resizeConfirmBackdrop.addEventListener('click', (event) => {
 });
 
 window.addEventListener('keydown', (event) => {
+  if (event.key === 'Tab') {
+    trapTab(event);
+    return;
+  }
   if (event.key !== 'Escape') return;
 
   if (!rowActionModal.classList.contains('hidden')) {
