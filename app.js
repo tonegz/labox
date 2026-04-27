@@ -180,6 +180,7 @@ const matrixEditorPanel = matrixWrapper.closest('.panel');
 let dragSourceRow = null;
 let currentDragTarget = null;
 let isResizing = false;
+let resizePointerId = null;
 let resizeStartX = 0;
 let resizeStartY = 0;
 let resizeStartRows = 0;
@@ -476,9 +477,20 @@ function updateResizeOverlay(newRows, newCols) {
   currentResizeCols = newCols;
 }
 
+function cancelResize() {
+  if (!isResizing) return;
+  isResizing = false;
+  if (resizePointerId !== null) {
+    try { matrixResizeHandle.releasePointerCapture(resizePointerId); } catch (_) {}
+    resizePointerId = null;
+  }
+  resizeOverlay.classList.add('hidden');
+}
+
 function onResizeStart(event) {
   event.preventDefault();
   isResizing = true;
+  resizePointerId = event.pointerId;
   matrixResizeHandle.setPointerCapture(event.pointerId);
   resizeStartX = event.clientX;
   resizeStartY = event.clientY;
@@ -507,6 +519,7 @@ function onResizeMove(event) {
 function onResizeEnd(event) {
   if (!isResizing) return;
   isResizing = false;
+  resizePointerId = null;
   matrixResizeHandle.releasePointerCapture(event.pointerId);
   resizeOverlay.classList.add('hidden');
 
@@ -1490,7 +1503,9 @@ window.addEventListener('keydown', (event) => {
   }
   if (event.key !== 'Escape') return;
 
-  if (!rowActionModal.classList.contains('hidden')) {
+  if (isResizing) {
+    cancelResize();
+  } else if (!rowActionModal.classList.contains('hidden')) {
     closeRowActionModal();
   } else if (!resizeConfirmBackdrop.classList.contains('hidden')) {
     hideResizeConfirm();
