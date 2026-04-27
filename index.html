@@ -124,6 +124,22 @@
     </div>
   </div>
 
+  <div id="scale-row-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="scale-row-modal-title">
+    <div class="modal-content">
+      <h3 id="scale-row-modal-title">Scale row <span id="scale-modal-row-num"></span></h3>
+      <div class="modal-section">
+        <div class="custom-multiplier">
+          <label>
+            Factor
+            <input id="scale-modal-factor" type="text" inputmode="decimal" class="factor-input" value="1" />
+          </label>
+          <button id="scale-modal-apply" type="button">Scale</button>
+        </div>
+      </div>
+      <button id="scale-modal-cancel" type="button" class="cancel-button">Cancel</button>
+    </div>
+  </div>
+
   <div id="resize-confirm-backdrop" class="modal hidden" role="dialog" aria-modal="true">
     <div id="resize-confirm-modal" class="modal-content resize-confirm-modal" role="document">
       <p>Reducing the matrix to <strong id="resize-confirm-dims"></strong> will remove some non-empty cells.</p>

@@ -161,6 +161,12 @@ const sourceRowSelect = document.getElementById('source-row');
 const addRowButtonTransform = document.getElementById('add-row-btn');
 const addFactorInput = document.getElementById('add-factor');
 
+const scaleRowModal = document.getElementById('scale-row-modal');
+const scaleModalRowNum = document.getElementById('scale-modal-row-num');
+const scaleModalFactor = document.getElementById('scale-modal-factor');
+const scaleModalApply = document.getElementById('scale-modal-apply');
+const scaleModalCancel = document.getElementById('scale-modal-cancel');
+
 const rowActionModal = document.getElementById('row-action-modal');
 const modalSourceRow = document.getElementById('modal-source-row');
 const modalTargetRow = document.getElementById('modal-target-row');
@@ -896,6 +902,17 @@ function scaleRow() {
   renderMatrix();
 }
 
+function scaleRowByFactor(rowIndex, factor) {
+  if (state.fractionMode) {
+    if (fracIsZero(factor)) return;
+    state.matrix[rowIndex] = state.matrix[rowIndex].map((v) => fracMul(v, factor));
+  } else {
+    if (factor === 0 || !Number.isFinite(factor)) return;
+    state.matrix[rowIndex] = state.matrix[rowIndex].map((v) => v * factor);
+  }
+  renderMatrix();
+}
+
 function addScaledRow() {
   const target = Number(targetRowSelect.value);
   const source = Number(sourceRowSelect.value);
@@ -1075,6 +1092,14 @@ function updateDragHover(event) {
 
   const targetRow = Number(rowWrapper.dataset.row);
   if (targetRow === dragSourceRow) {
+    // Allow same-row cell hover for "scale row" drag action.
+    if (x >= containerRect.left + DRAG_HANDLE_WIDTH + ROW_HEADER_WIDTH) {
+      const cell = event.target.closest('.matrix-cell[data-col]');
+      if (cell) {
+        setSameRowScaleTarget(cell, targetRow, Number(cell.dataset.col), event);
+        return;
+      }
+    }
     clearDragTargetState();
     return;
   }
@@ -1131,6 +1156,48 @@ function setCellDragTarget(cell, targetRow, targetCol, event) {
   };
 
   cell.classList.add('drag-over');
+  showDragTip(event, tipText);
+}
+
+function setSameRowScaleTarget(cell, rowIndex, colIndex, event) {
+  if (currentDragTarget?.type === 'scale-row'
+      && currentDragTarget.row === rowIndex
+      && currentDragTarget.col === colIndex) {
+    updateDragTipPosition(event);
+    return;
+  }
+
+  clearDragTargetState();
+
+  // Find first non-zero column in this row.
+  const row = state.matrix[rowIndex];
+  const firstNonZeroCol = row.findIndex((v) =>
+    state.fractionMode ? !fracIsZero(v) : v !== 0
+  );
+
+  let directScale = false;
+  let factor = null;
+  let tipText = 'scale row...';
+
+  if (firstNonZeroCol === colIndex) {
+    const val = row[colIndex];
+    const isOne = state.fractionMode
+      ? (val.num === 1 && val.den === 1)
+      : val === 1;
+    if (!isOne) {
+      directScale = true;
+      factor = state.fractionMode
+        ? makeFrac(val.den, val.num)
+        : 1 / val;
+      const factorStr = state.fractionMode
+        ? fracToString(factor)
+        : String(Math.round(factor * 1e6) / 1e6);
+      tipText = `× ${factorStr}`;
+    }
+  }
+
+  cell.classList.add('drag-over');
+  currentDragTarget = { type: 'scale-row', row: rowIndex, col: colIndex, cell, directScale, factor };
   showDragTip(event, tipText);
 }
 
@@ -1273,7 +1340,7 @@ function onPanelDrop(event) {
 }
 
 function clearDragTargetState() {
-  if (currentDragTarget?.type === 'cell' && currentDragTarget.cell) {
+  if (currentDragTarget?.cell) {
     currentDragTarget.cell.classList.remove('drag-over');
   }
   currentDragTarget = null;
