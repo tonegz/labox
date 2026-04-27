@@ -521,6 +521,12 @@ input.factor-input {
   background: #ffffff;
 }
 
+select {
+  padding: 0.45rem 0.5rem;
+  font-size: 0.88rem;
+  border-radius: 10px;
+}
+
 input.factor-input {
   width: 72px;
 }
