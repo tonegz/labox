@@ -179,9 +179,6 @@ const matrixEditorPanel = matrixWrapper.closest('.panel');
 
 let dragSourceRow = null;
 let currentDragTarget = null;
-let dragPreviewEl = null;
-let dragAnchorX = 0;
-let dragAnchorY = 0;
 let isResizing = false;
 let resizePointerId = null;
 let resizeStartX = 0;
@@ -1055,19 +1052,6 @@ function onRowDragStart(event) {
   event.dataTransfer.setDragImage(ghost, 0, 0);
   window.setTimeout(() => ghost.remove(), 0);
 
-  // Floating "Row N" pill that follows the cursor.
-  dragAnchorX = 0;
-  dragAnchorY = 0;
-  const pill = document.createElement('div');
-  pill.className = 'drag-row-pill';
-  pill.textContent = `Row ${rowIndex + 1}`;
-  pill.style.position = 'fixed';
-  pill.style.left = `${event.clientX}px`;
-  pill.style.top  = `${event.clientY}px`;
-  pill.style.pointerEvents = 'none';
-  pill.style.zIndex = '9999';
-  dragPreviewEl = pill;
-  document.body.appendChild(dragPreviewEl);
 }
 
 function onRowDragOver(event) {
@@ -1156,10 +1140,6 @@ function onCellDragLeave(event) {
 }
 
 function updateDragTipPosition(event) {
-  if (dragPreviewEl) {
-    dragPreviewEl.style.left = `${event.clientX}px`;
-    dragPreviewEl.style.top  = `${event.clientY}px`;
-  }
   if (!dragTip) return;
   const rect = matrixWrapper.getBoundingClientRect();
   const x = event.clientX - rect.left;
@@ -1501,18 +1481,17 @@ matrixResizeHandle.addEventListener('pointerdown', onResizeStart);
 window.addEventListener('pointermove', onResizeMove);
 window.addEventListener('pointerup', onResizeEnd);
 window.addEventListener('pointercancel', onResizeEnd);
-window.addEventListener('dragend', () => {
-  clearDragTargetState();
-  if (dragPreviewEl) {
-    dragPreviewEl.remove();
-    dragPreviewEl = null;
-  }
-});
+window.addEventListener('dragend', clearDragTargetState);
 
 // Extended swap drop zone: gutter to the left of the drag handles.
 if (matrixEditorPanel) {
   matrixEditorPanel.addEventListener('dragover', onPanelDragOver);
   matrixEditorPanel.addEventListener('drop', onPanelDrop);
+  matrixEditorPanel.addEventListener('dragleave', (event) => {
+    if (!matrixEditorPanel.contains(event.relatedTarget)) {
+      clearDragTargetState();
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
