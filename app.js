@@ -319,6 +319,11 @@ function onCellFocus(event) {
 }
 
 function onCellKeyDown(event) {
+  if (event.key === ' ') {
+    event.preventDefault();
+    return;
+  }
+
   if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
   event.preventDefault();
 
