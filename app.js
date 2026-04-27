@@ -1,10 +1,134 @@
+// ---------------------------------------------------------------------------
+// Fraction arithmetic
+// ---------------------------------------------------------------------------
+
+function gcd(a, b) {
+  a = Math.abs(Math.trunc(a));
+  b = Math.abs(Math.trunc(b));
+  while (b) { const t = b; b = a % b; a = t; }
+  return a || 1;
+}
+
+/** Construct a reduced fraction {num, den} with den always positive. */
+function makeFrac(num, den) {
+  num = Math.trunc(num);
+  den = Math.trunc(den);
+  if (den === 0) return { num: 0, den: 1 };
+  if (num === 0) return { num: 0, den: 1 };
+  if (den < 0) { num = -num; den = -den; }
+  const g = gcd(Math.abs(num), den);
+  return { num: num / g, den: den / g };
+}
+
+function fracAdd(a, b) {
+  return makeFrac(a.num * b.den + b.num * a.den, a.den * b.den);
+}
+
+function fracMul(a, b) {
+  return makeFrac(a.num * b.num, a.den * b.den);
+}
+
+function fracNeg(f) {
+  return { num: -f.num, den: f.den };
+}
+
+function fracIsZero(f) {
+  return f.num === 0;
+}
+
+function fracToFloat(f) {
+  return f.num / f.den;
+}
+
+function fracToString(f) {
+  if (f.den === 1) return String(f.num);
+  return `${f.num}/${f.den}`;
+}
+
+/**
+ * Best rational approximation of a float via continued fractions.
+ * Returns an exact fraction for integers and common decimals (0.5, 0.25,
+ * 0.333…, etc.) and a close rational for everything else.
+ */
+function fracFromFloat(x) {
+  if (!Number.isFinite(x)) return { num: 0, den: 1 };
+  if (x === 0) return { num: 0, den: 1 };
+
+  const sign = x < 0 ? -1 : 1;
+  x = Math.abs(x);
+
+  const MAX_DEN = 10000;
+  const TOL = 1e-9;
+
+  // Seed with the integer part
+  let p0 = 1;
+  let p1 = Math.floor(x);
+  let q0 = 0;
+  let q1 = 1;
+  let remainder = x - Math.floor(x);
+
+  if (remainder < TOL) return makeFrac(sign * p1, q1);
+
+  for (let i = 0; i < 64; i++) {
+    const nextB = 1 / remainder;
+    const a = Math.floor(nextB);
+    remainder = nextB - a;
+
+    const pNext = a * p1 + p0;
+    const qNext = a * q1 + q0;
+
+    if (qNext > MAX_DEN) break;
+
+    p0 = p1; p1 = pNext;
+    q0 = q1; q1 = qNext;
+
+    if (Math.abs(x - p1 / q1) < TOL || remainder < TOL) break;
+  }
+
+  return makeFrac(sign * p1, q1);
+}
+
+/**
+ * Parse a user-typed string into a fraction.
+ * Accepts: integers ("3"), decimals ("1.5"), fractions ("3/4", "-1/2").
+ * Returns null for incomplete / invalid input.
+ */
+function parseFrac(s) {
+  s = (s ?? '').trim();
+  if (s === '' || s === '-' || s === '+') return null;
+
+  const slashIdx = s.lastIndexOf('/');
+  if (slashIdx > 0) {
+    const numStr = s.slice(0, slashIdx).trim();
+    const denStr = s.slice(slashIdx + 1).trim();
+    const num = Number(numStr);
+    const den = Number(denStr);
+    if (!Number.isInteger(num) || !Number.isInteger(den) || den === 0) return null;
+    return makeFrac(num, den);
+  }
+
+  const n = Number(s);
+  if (!Number.isFinite(n)) return null;
+  if (Number.isInteger(n)) return makeFrac(n, 1);
+  return fracFromFloat(n);
+}
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+
 const state = {
   matrix: [
     [1, 2, 3],
     [4, 5, 6],
     [7, 8, 9],
   ],
+  fractionMode: false,
 };
+
+// ---------------------------------------------------------------------------
+// DOM references
+// ---------------------------------------------------------------------------
 
 const matrixContainer = document.getElementById('matrix-container');
 const matrixWrapper = document.getElementById('matrix-wrapper');
@@ -46,6 +170,11 @@ const modalSwapRowsButton = document.getElementById('modal-swap-rows');
 const modalCancelActionButton = document.getElementById('modal-cancel-action');
 const rowMultiplierButtons = document.querySelectorAll('[data-multiplier]');
 const dragTip = document.getElementById('drag-tip');
+const fractionModeToggle = document.getElementById('fraction-mode-toggle');
+
+// ---------------------------------------------------------------------------
+// Resize state
+// ---------------------------------------------------------------------------
 
 let dragSourceRow = null;
 let currentDragTarget = null;
@@ -57,6 +186,88 @@ let resizeStartCols = 0;
 let currentResizeRows = 0;
 let currentResizeCols = 0;
 let pendingResize = null;
+
+// ---------------------------------------------------------------------------
+// Mode-aware value helpers
+// ---------------------------------------------------------------------------
+
+function zeroValue() {
+  return state.fractionMode ? { num: 0, den: 1 } : 0;
+}
+
+function isZeroValue(v) {
+  return state.fractionMode ? fracIsZero(v) : v === 0;
+}
+
+function cellDisplayValue(v) {
+  return state.fractionMode ? fracToString(v) : String(v);
+}
+
+function updateMatrixJson() {
+  if (state.fractionMode) {
+    const display = state.matrix.map((row) => row.map(fracToString));
+    matrixJson.textContent = JSON.stringify(display, null, 2);
+  } else {
+    matrixJson.textContent = JSON.stringify(state.matrix, null, 2);
+  }
+}
+
+/**
+ * In fraction mode, the elimination factor for zeroing out column `col` of
+ * `targetRow` using `sourceRow` is always exact: -(target/source).
+ * In float mode we only offer the shortcut when the ratio is an integer.
+ * Returns null if the operation is not applicable.
+ */
+function computeCellFactor(sourceRow, targetRow, col) {
+  if (state.fractionMode) {
+    const sv = state.matrix[sourceRow][col];
+    const tv = state.matrix[targetRow][col];
+    if (fracIsZero(sv) || fracIsZero(tv)) return null;
+    // -(tv / sv) = -(tv.num * sv.den) / (tv.den * sv.num)
+    return fracNeg(makeFrac(tv.num * sv.den, tv.den * sv.num));
+  }
+
+  const sv = state.matrix[sourceRow][col];
+  const tv = state.matrix[targetRow][col];
+  if (sv === 0 || tv === 0 || !Number.isFinite(sv) || !Number.isFinite(tv)) return null;
+  if (!Number.isInteger(tv / sv)) return null;
+  return -(tv / sv);
+}
+
+// ---------------------------------------------------------------------------
+// Fraction-mode toggle
+// ---------------------------------------------------------------------------
+
+function updateFractionModeUI() {
+  const on = state.fractionMode;
+  fractionModeToggle.textContent = on ? 'Fraction mode: On' : 'Fraction mode: Off';
+  fractionModeToggle.classList.toggle('fraction-mode-active', on);
+
+  const hint = on ? 'e.g. 1/3' : '';
+  [scaleFactorInput, addFactorInput, modalCustomFactor].forEach((input) => {
+    input.placeholder = hint;
+  });
+}
+
+function toggleFractionMode() {
+  if (state.fractionMode) {
+    // Fraction → float
+    state.matrix = state.matrix.map((row) => row.map(fracToFloat));
+    state.fractionMode = false;
+  } else {
+    // Float → fraction
+    state.matrix = state.matrix.map((row) => row.map(fracFromFloat));
+    state.fractionMode = true;
+  }
+  updateFractionModeUI();
+  renderMatrix();
+}
+
+fractionModeToggle.addEventListener('click', toggleFractionMode);
+
+// ---------------------------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------------------------
 
 function renderMatrix() {
   const rows = state.matrix.length;
@@ -110,9 +321,9 @@ function renderMatrix() {
 
       const input = document.createElement('input');
       input.type = 'text';
-      input.inputMode = 'decimal';
+      input.inputMode = state.fractionMode ? 'text' : 'decimal';
       input.placeholder = '0';
-      input.value = value;
+      input.value = cellDisplayValue(value);
       input.dataset.row = rowIndex;
       input.dataset.col = colIndex;
 
@@ -128,8 +339,14 @@ function renderMatrix() {
     matrixContainer.appendChild(rowWrapper);
   });
 
+  // Widen cells in fraction mode so fractions like "-10/11" fit comfortably
+  matrixContainer.querySelectorAll('.matrix-cell:not(.row-header):not(.row-drag-handle)').forEach((cell) => {
+    cell.style.width = state.fractionMode ? '72px' : '';
+    cell.style.minWidth = state.fractionMode ? '72px' : '';
+  });
+
   matrixSizeLabel.textContent = `Matrix size: ${rows} × ${cols}`;
-  matrixJson.textContent = JSON.stringify(state.matrix, null, 2);
+  updateMatrixJson();
 
   const rowOptions = Array.from({ length: rows }, (_, index) => {
     return `<option value="${index}">Row ${index + 1}</option>`;
@@ -152,6 +369,10 @@ function renderMatrix() {
   updateButtons();
   updateResizeHandle();
 }
+
+// ---------------------------------------------------------------------------
+// Resize handle
+// ---------------------------------------------------------------------------
 
 function updateResizeHandle() {
   const matrixRect = matrixContainer.getBoundingClientRect();
@@ -270,7 +491,7 @@ function resizeMatrix(rows, cols) {
 
   state.matrix.forEach((row) => {
     if (cols > currentCols) {
-      row.push(...Array.from({ length: cols - currentCols }, () => 0));
+      row.push(...Array.from({ length: cols - currentCols }, () => zeroValue()));
     } else if (cols < currentCols) {
       row.splice(cols);
     }
@@ -278,7 +499,7 @@ function resizeMatrix(rows, cols) {
 
   if (rows > currentRows) {
     for (let i = currentRows; i < rows; i += 1) {
-      state.matrix.push(Array.from({ length: cols }, () => 0));
+      state.matrix.push(Array.from({ length: cols }, () => zeroValue()));
     }
   } else if (rows < currentRows) {
     state.matrix.splice(rows);
@@ -292,14 +513,14 @@ function hasNonZeroRemovedCells(rows, cols) {
   const currentCols = state.matrix[0]?.length ?? 0;
 
   for (let r = rows; r < currentRows; r += 1) {
-    if (state.matrix[r].some((value) => value !== 0)) {
+    if (state.matrix[r].some((value) => !isZeroValue(value))) {
       return true;
     }
   }
 
   for (let r = 0; r < Math.min(rows, currentRows); r += 1) {
     for (let c = cols; c < currentCols; c += 1) {
-      if (state.matrix[r][c] !== 0) {
+      if (!isZeroValue(state.matrix[r][c])) {
         return true;
       }
     }
@@ -307,6 +528,10 @@ function hasNonZeroRemovedCells(rows, cols) {
 
   return false;
 }
+
+// ---------------------------------------------------------------------------
+// Cell event handlers
+// ---------------------------------------------------------------------------
 
 function onNumberInputWheel(event) {
   if (document.activeElement !== event.currentTarget) return;
@@ -381,16 +606,26 @@ function onCellBlur(event) {
   const input = event.target;
   const rowIndex = Number(input.dataset.row);
   const colIndex = Number(input.dataset.col);
+
   if (input.value === '') {
-    state.matrix[rowIndex][colIndex] = 0;
+    state.matrix[rowIndex][colIndex] = zeroValue();
     input.value = '0';
-    matrixJson.textContent = JSON.stringify(state.matrix, null, 2);
+    updateMatrixJson();
     return;
   }
-  // If the user left an unparseable value in the cell, restore from state.
-  const numericValue = Number(input.value);
-  if (!Number.isFinite(numericValue)) {
-    input.value = String(state.matrix[rowIndex][colIndex]);
+
+  if (state.fractionMode) {
+    const f = parseFrac(input.value);
+    if (f === null) {
+      // Restore the last good value
+      input.value = fracToString(state.matrix[rowIndex][colIndex]);
+    }
+    // If valid, state was already updated in onCellChange
+  } else {
+    const numericValue = Number(input.value);
+    if (!Number.isFinite(numericValue)) {
+      input.value = String(state.matrix[rowIndex][colIndex]);
+    }
   }
 }
 
@@ -400,21 +635,31 @@ function onCellChange(event) {
   const colIndex = Number(input.dataset.col);
 
   if (input.value === '') {
-    state.matrix[rowIndex][colIndex] = 0;
-    matrixJson.textContent = JSON.stringify(state.matrix, null, 2);
+    state.matrix[rowIndex][colIndex] = zeroValue();
+    updateMatrixJson();
     return;
   }
 
-  const numericValue = Number(input.value);
-  if (!Number.isFinite(numericValue)) return;
-
-  state.matrix[rowIndex][colIndex] = numericValue;
-  matrixJson.textContent = JSON.stringify(state.matrix, null, 2);
+  if (state.fractionMode) {
+    const f = parseFrac(input.value);
+    if (f === null) return; // mid-typing (e.g. "1/"), don't clobber state
+    state.matrix[rowIndex][colIndex] = f;
+    updateMatrixJson();
+  } else {
+    const numericValue = Number(input.value);
+    if (!Number.isFinite(numericValue)) return;
+    state.matrix[rowIndex][colIndex] = numericValue;
+    updateMatrixJson();
+  }
 }
+
+// ---------------------------------------------------------------------------
+// Matrix structural operations
+// ---------------------------------------------------------------------------
 
 function addRow() {
   const cols = state.matrix[0].length;
-  const newRow = Array.from({ length: cols }, () => 0);
+  const newRow = Array.from({ length: cols }, () => zeroValue());
   state.matrix.push(newRow);
   renderMatrix();
 }
@@ -426,7 +671,7 @@ function removeRow() {
 }
 
 function addColumn() {
-  state.matrix.forEach((row) => row.push(0));
+  state.matrix.forEach((row) => row.push(zeroValue()));
   renderMatrix();
 }
 
@@ -436,6 +681,10 @@ function removeColumn() {
   state.matrix.forEach((row) => row.pop());
   renderMatrix();
 }
+
+// ---------------------------------------------------------------------------
+// Row transformations
+// ---------------------------------------------------------------------------
 
 function swapRows() {
   const a = Number(swapRowA.value);
@@ -466,26 +715,45 @@ function flashSelect(selectElement) {
 
 function scaleRow() {
   const rowIndex = Number(scaleRowSelect.value);
-  const factor = Number(scaleFactorInput.value);
-  if (Number.isNaN(factor)) return;
 
-  state.matrix[rowIndex] = state.matrix[rowIndex].map((value) => value * factor);
+  if (state.fractionMode) {
+    const factor = parseFrac(scaleFactorInput.value);
+    if (factor === null || fracIsZero(factor)) return;
+    state.matrix[rowIndex] = state.matrix[rowIndex].map((v) => fracMul(v, factor));
+  } else {
+    const factor = Number(scaleFactorInput.value);
+    if (Number.isNaN(factor)) return;
+    state.matrix[rowIndex] = state.matrix[rowIndex].map((v) => v * factor);
+  }
+
   renderMatrix();
 }
 
 function addScaledRow() {
   const target = Number(targetRowSelect.value);
   const source = Number(sourceRowSelect.value);
-  const factor = Number(addFactorInput.value);
-  addScaledRowWithFactor(target, source, factor);
+
+  if (state.fractionMode) {
+    const factor = parseFrac(addFactorInput.value);
+    if (factor !== null) addScaledRowWithFactor(target, source, factor);
+  } else {
+    const factor = Number(addFactorInput.value);
+    addScaledRowWithFactor(target, source, factor);
+  }
 }
 
 function addScaledRowWithFactor(target, source, factor) {
-  if (Number.isNaN(factor) || target === source) return;
-
-  state.matrix[target] = state.matrix[target].map((value, index) => {
-    return value + state.matrix[source][index] * factor;
-  });
+  if (state.fractionMode) {
+    if (fracIsZero(factor) || target === source) return;
+    state.matrix[target] = state.matrix[target].map((v, i) => {
+      return fracAdd(v, fracMul(state.matrix[source][i], factor));
+    });
+  } else {
+    if (Number.isNaN(factor) || target === source) return;
+    state.matrix[target] = state.matrix[target].map((v, i) => {
+      return v + state.matrix[source][i] * factor;
+    });
+  }
 
   renderMatrix();
 }
@@ -583,11 +851,15 @@ function updateRowIndices() {
     if (dragHandle) {
       dragHandle.dataset.row = rowIndex;
     }
-    wrapper.querySelectorAll('input[type="number"]').forEach((input) => {
+    wrapper.querySelectorAll('input[type="text"]').forEach((input) => {
       input.dataset.row = rowIndex;
     });
   });
 }
+
+// ---------------------------------------------------------------------------
+// Drag and drop
+// ---------------------------------------------------------------------------
 
 function onRowDragStart(event) {
   const rowIndex = Number(event.currentTarget.dataset.row);
@@ -688,27 +960,24 @@ function setCellDragTarget(cell, targetRow, targetCol, event) {
 
   clearDragTargetState();
 
-  const sourceValue = Number(state.matrix[dragSourceRow][targetCol]);
-  const targetValue = Number(state.matrix[targetRow][targetCol]);
-  const isValidMultiple = sourceValue !== 0
-    && targetValue !== 0
-    && Number.isFinite(sourceValue)
-    && Number.isFinite(targetValue)
-    && Number.isInteger(targetValue / sourceValue);
+  const factor = computeCellFactor(dragSourceRow, targetRow, targetCol);
+  const isValid = factor !== null;
 
   let tipText = '?';
-  let factor = null;
-  if (isValidMultiple) {
-    const ratio = targetValue / sourceValue;
-    factor = -ratio;
-    tipText = `${factor >= 0 ? '+' : ''}${factor}`;
+  if (isValid) {
+    if (state.fractionMode) {
+      const fs = fracToString(factor);
+      tipText = (factor.num >= 0 ? '+' : '') + fs;
+    } else {
+      tipText = `${factor >= 0 ? '+' : ''}${factor}`;
+    }
   }
 
   currentDragTarget = {
     type: 'cell',
     row: targetRow,
     col: targetCol,
-    valid: isValidMultiple,
+    valid: isValid,
     factor,
     cell,
   };
@@ -832,12 +1101,9 @@ function onRowDrop(event) {
   const targetColAttr = event.currentTarget.dataset.col;
   if (typeof targetColAttr !== 'undefined') {
     const targetCol = Number(targetColAttr);
-    const sourceValue = Number(state.matrix[sourceIndex][targetCol]);
-    const targetValue = Number(state.matrix[targetRow][targetCol]);
-    const isValidMultiple = sourceValue !== 0 && targetValue !== 0 && Number.isFinite(sourceValue) && Number.isFinite(targetValue) && Number.isInteger(targetValue / sourceValue);
+    const factor = computeCellFactor(sourceIndex, targetRow, targetCol);
 
-    if (isValidMultiple) {
-      const factor = -(targetValue / sourceValue);
+    if (factor !== null) {
       addScaledRowWithFactor(targetRow, sourceIndex, factor);
       clearDragTargetState();
       return;
@@ -852,6 +1118,10 @@ function onRowDrop(event) {
   clearDragTargetState();
 }
 
+// ---------------------------------------------------------------------------
+// Row-action modal
+// ---------------------------------------------------------------------------
+
 function openRowActionModal(source, target) {
   modalSourceRow.textContent = String(source + 1);
   modalTargetRow.textContent = String(target + 1);
@@ -865,10 +1135,15 @@ function openRowActionModal(source, target) {
 }
 
 function updateModalAddButton() {
-  const factor = Number(modalCustomFactor.value);
-  modalAddMultiplierButton.disabled = modalCustomFactor.value === ''
-    || !Number.isFinite(factor)
-    || factor === 0;
+  if (state.fractionMode) {
+    const factor = parseFrac(modalCustomFactor.value);
+    modalAddMultiplierButton.disabled = factor === null || fracIsZero(factor);
+  } else {
+    const factor = Number(modalCustomFactor.value);
+    modalAddMultiplierButton.disabled = modalCustomFactor.value === ''
+      || !Number.isFinite(factor)
+      || factor === 0;
+  }
 }
 
 function closeRowActionModal() {
@@ -944,12 +1219,19 @@ function applyRowAction(action, factor) {
 
 rowMultiplierButtons.forEach((button) => {
   button.addEventListener('click', () => {
-    applyRowAction('add', Number(button.dataset.multiplier));
+    const n = Number(button.dataset.multiplier);
+    const factor = state.fractionMode ? makeFrac(n, 1) : n;
+    applyRowAction('add', factor);
   });
 });
 
 modalAddMultiplierButton.addEventListener('click', () => {
-  applyRowAction('add', Number(modalCustomFactor.value));
+  if (state.fractionMode) {
+    const factor = parseFrac(modalCustomFactor.value);
+    if (factor !== null && !fracIsZero(factor)) applyRowAction('add', factor);
+  } else {
+    applyRowAction('add', Number(modalCustomFactor.value));
+  }
 });
 
 modalCustomFactor.addEventListener('input', updateModalAddButton);
@@ -966,6 +1248,10 @@ rowActionModal.addEventListener('click', (event) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Resize-confirm modal
+// ---------------------------------------------------------------------------
+
 resizeConfirmRemove.addEventListener('click', () => {
   applyPendingResize();
   hideResizeConfirm();
@@ -980,6 +1266,10 @@ resizeConfirmBackdrop.addEventListener('click', (event) => {
     hideResizeConfirm();
   }
 });
+
+// ---------------------------------------------------------------------------
+// Global keyboard / pointer listeners
+// ---------------------------------------------------------------------------
 
 window.addEventListener('keydown', (event) => {
   if (event.key === 'Tab') {
@@ -1001,6 +1291,10 @@ window.addEventListener('pointerup', onResizeEnd);
 window.addEventListener('pointercancel', onResizeEnd);
 window.addEventListener('dragend', clearDragTargetState);
 
+// ---------------------------------------------------------------------------
+// Button state
+// ---------------------------------------------------------------------------
+
 function updateButtons() {
   removeRowButton.disabled = state.matrix.length <= 1;
   removeColButton.disabled = state.matrix[0].length <= 1;
@@ -1008,18 +1302,33 @@ function updateButtons() {
   const sameRowSelected = swapRowA.value === swapRowB.value;
   swapRowsButton.disabled = sameRowSelected || state.matrix.length <= 1;
 
-  const scaleFactor = Number(scaleFactorInput.value);
-  scaleRowButton.disabled = scaleFactorInput.value === ''
-    || !Number.isFinite(scaleFactor)
-    || scaleFactor === 0;
+  // Scale factor
+  if (state.fractionMode) {
+    const sf = parseFrac(scaleFactorInput.value);
+    scaleRowButton.disabled = sf === null || fracIsZero(sf);
+  } else {
+    const scaleFactor = Number(scaleFactorInput.value);
+    scaleRowButton.disabled = scaleFactorInput.value === ''
+      || !Number.isFinite(scaleFactor)
+      || scaleFactor === 0;
+  }
 
-  const addFactor = Number(addFactorInput.value);
+  // Add-scaled factor
   const sameAddRow = targetRowSelect.value === sourceRowSelect.value;
-  addRowButtonTransform.disabled = addFactorInput.value === ''
-    || !Number.isFinite(addFactor)
-    || addFactor === 0
-    || sameAddRow
-    || state.matrix.length <= 1;
+  if (state.fractionMode) {
+    const af = parseFrac(addFactorInput.value);
+    addRowButtonTransform.disabled = af === null
+      || fracIsZero(af)
+      || sameAddRow
+      || state.matrix.length <= 1;
+  } else {
+    const addFactor = Number(addFactorInput.value);
+    addRowButtonTransform.disabled = addFactorInput.value === ''
+      || !Number.isFinite(addFactor)
+      || addFactor === 0
+      || sameAddRow
+      || state.matrix.length <= 1;
+  }
 }
 
 swapRowA.addEventListener('change', () => {
@@ -1044,5 +1353,9 @@ removeColButton.addEventListener('click', removeColumn);
 swapRowsButton.addEventListener('click', swapRows);
 scaleRowButton.addEventListener('click', scaleRow);
 addRowButtonTransform.addEventListener('click', addScaledRow);
+
+// ---------------------------------------------------------------------------
+// Boot
+// ---------------------------------------------------------------------------
 
 renderMatrix();

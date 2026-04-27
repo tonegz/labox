@@ -378,7 +378,8 @@ label {
 }
 
 select,
-input[type="number"] {
+input[type="number"],
+input.factor-input {
   border: 1px solid #d1d5db;
   border-radius: 12px;
   padding: 0.7rem 0.9rem;
@@ -393,6 +394,28 @@ input[type="number"] {
   padding: 0;
   margin: 0;
   background: transparent;
+}
+
+/* Fraction mode toggle */
+#fraction-mode-toggle {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  font-weight: 600;
+}
+
+#fraction-mode-toggle:hover {
+  background: #e5e7eb;
+}
+
+#fraction-mode-toggle.fraction-mode-active {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: #bfdbfe;
+}
+
+#fraction-mode-toggle.fraction-mode-active:hover {
+  background: #bfdbfe;
 }
 
 select.flash {

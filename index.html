@@ -48,7 +48,7 @@
             </label>
             <label>
               by
-              <input id="scale-factor" type="number" step="any" value="1" />
+              <input id="scale-factor" type="text" inputmode="decimal" class="factor-input" value="1" />
             </label>
             <button id="scale-row-btn">Apply</button>
           </div>
@@ -64,7 +64,7 @@
             </label>
             <label>
               factor
-              <input id="add-factor" type="number" step="any" value="1" />
+              <input id="add-factor" type="text" inputmode="decimal" class="factor-input" value="1" />
             </label>
             <button id="add-row-btn">Add</button>
           </div>
@@ -79,6 +79,7 @@
             <button id="remove-row">Remove Row</button>
             <button id="add-col">Add Column</button>
             <button id="remove-col">Remove Column</button>
+            <button id="fraction-mode-toggle" title="Toggle exact fraction arithmetic">Fraction mode: Off</button>
           </div>
           <p class="matrix-size" id="matrix-size"></p>
         </div>
@@ -110,7 +111,7 @@
         <div class="custom-multiplier">
           <label>
             Custom multiplier
-            <input id="modal-custom-factor" type="number" step="any" value="1" />
+            <input id="modal-custom-factor" type="text" inputmode="decimal" class="factor-input" value="1" />
           </label>
           <button id="modal-add-multiplier" type="button">Add with multiplier</button>
         </div>
