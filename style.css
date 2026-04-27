@@ -325,7 +325,18 @@ p {
   white-space: nowrap;
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
   transform: translate(-50%, -100%);
-  z-index: 40;
+  z-index: 10000;
+}
+
+.drag-row-pill {
+  padding: 6px 18px;
+  color: #1e3a8a;
+  font-size: 1rem;
+  font-weight: 500;
+  white-space: nowrap;
+  background: radial-gradient(ellipse at center, #eef2ff 25%, rgba(238, 242, 255, 0) 80%);
+  transform: translate(-50%, 6px);
+  user-select: none;
 }
 
 .drag-tip.swap-active {

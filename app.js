@@ -179,6 +179,9 @@ const matrixEditorPanel = matrixWrapper.closest('.panel');
 
 let dragSourceRow = null;
 let currentDragTarget = null;
+let dragPreviewEl = null;
+let dragAnchorX = 0;
+let dragAnchorY = 0;
 let isResizing = false;
 let resizePointerId = null;
 let resizeStartX = 0;
@@ -1045,48 +1048,26 @@ function onRowDragStart(event) {
   const rowWrapper = event.currentTarget.closest('.matrix-row');
   if (!rowWrapper) return;
 
-  const dragImage = rowWrapper.cloneNode(true);
-  dragImage.style.position = 'absolute';
-  dragImage.style.top = '-9999px';
-  dragImage.style.left = '-9999px';
-  dragImage.style.margin = '0';
-  dragImage.style.opacity = '0.95';
-  dragImage.style.pointerEvents = 'none';
-  dragImage.style.zIndex = '9999';
+  // Suppress the native drag ghost with a fully transparent off-screen element.
+  const ghost = document.createElement('div');
+  ghost.style.cssText = 'position:fixed;top:-500px;left:-500px;width:1px;height:1px;opacity:0;';
+  document.body.appendChild(ghost);
+  event.dataTransfer.setDragImage(ghost, 0, 0);
+  window.setTimeout(() => ghost.remove(), 0);
 
-  const sourceCells = Array.from(rowWrapper.querySelectorAll('.matrix-cell'));
-  const cloneCells = Array.from(dragImage.querySelectorAll('.matrix-cell'));
-  sourceCells.forEach((sourceCell, index) => {
-    const cloneCell = cloneCells[index];
-    if (!cloneCell) return;
-    const rect = sourceCell.getBoundingClientRect();
-    cloneCell.style.width = `${rect.width}px`;
-    cloneCell.style.minWidth = `${rect.width}px`;
-    cloneCell.style.maxWidth = `${rect.width}px`;
-    cloneCell.style.height = `${rect.height}px`;
-    cloneCell.style.boxSizing = 'border-box';
-  });
-
-  const inputs = dragImage.querySelectorAll('input');
-  const sourceInputs = rowWrapper.querySelectorAll('input');
-  inputs.forEach((input, index) => {
-    input.value = sourceInputs[index]?.value ?? input.value;
-  });
-
-  document.body.appendChild(dragImage);
-  const rowRect = rowWrapper.getBoundingClientRect();
-  dragImage.style.width = `${rowRect.width}px`;
-  dragImage.style.height = `${rowRect.height}px`;
-
-  const anchorX = event.clientX - rowRect.left;
-  const anchorY = event.clientY - rowRect.top;
-  event.dataTransfer.setDragImage(dragImage, anchorX, anchorY);
-
-  window.setTimeout(() => {
-    if (dragImage.parentNode) {
-      dragImage.parentNode.removeChild(dragImage);
-    }
-  }, 0);
+  // Floating "Row N" pill that follows the cursor.
+  dragAnchorX = 0;
+  dragAnchorY = 0;
+  const pill = document.createElement('div');
+  pill.className = 'drag-row-pill';
+  pill.textContent = `Row ${rowIndex + 1}`;
+  pill.style.position = 'fixed';
+  pill.style.left = `${event.clientX}px`;
+  pill.style.top  = `${event.clientY}px`;
+  pill.style.pointerEvents = 'none';
+  pill.style.zIndex = '9999';
+  dragPreviewEl = pill;
+  document.body.appendChild(dragPreviewEl);
 }
 
 function onRowDragOver(event) {
@@ -1175,6 +1156,10 @@ function onCellDragLeave(event) {
 }
 
 function updateDragTipPosition(event) {
+  if (dragPreviewEl) {
+    dragPreviewEl.style.left = `${event.clientX}px`;
+    dragPreviewEl.style.top  = `${event.clientY}px`;
+  }
   if (!dragTip) return;
   const rect = matrixWrapper.getBoundingClientRect();
   const x = event.clientX - rect.left;
@@ -1516,7 +1501,13 @@ matrixResizeHandle.addEventListener('pointerdown', onResizeStart);
 window.addEventListener('pointermove', onResizeMove);
 window.addEventListener('pointerup', onResizeEnd);
 window.addEventListener('pointercancel', onResizeEnd);
-window.addEventListener('dragend', clearDragTargetState);
+window.addEventListener('dragend', () => {
+  clearDragTargetState();
+  if (dragPreviewEl) {
+    dragPreviewEl.remove();
+    dragPreviewEl = null;
+  }
+});
 
 // Extended swap drop zone: gutter to the left of the drag handles.
 if (matrixEditorPanel) {
