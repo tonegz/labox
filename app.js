@@ -1510,6 +1510,15 @@ window.addEventListener('pointerup', onResizeEnd);
 window.addEventListener('pointercancel', onResizeEnd);
 window.addEventListener('dragend', clearDragTargetState);
 
+// Prevent the "no-parking" cursor anywhere on the page during a row drag.
+// Actual drop handling remains on the registered drop targets only.
+window.addEventListener('dragover', (event) => {
+  if (dragSourceRow !== null) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }
+});
+
 // Extended swap drop zone: gutter to the left of the drag handles.
 if (matrixEditorPanel) {
   matrixEditorPanel.addEventListener('dragover', onPanelDragOver);
