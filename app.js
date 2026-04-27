@@ -1116,11 +1116,11 @@ function setCellDragTarget(cell, targetRow, targetCol, event) {
   const factor = computeCellFactor(dragSourceRow, targetRow, targetCol);
   const isValid = factor !== null;
 
-  let tipText = '?';
+  let tipText = `add to row ${targetRow + 1}...`;
   if (isValid) {
     if (state.fractionMode) {
       const fs = fracToString(factor);
-      tipText = (factor.num >= 0 ? '+' : '') + fs;
+      tipText = `add ${fs == '1' ? '' : '' + fs + ' × '}to row ${targetRow + 1}`;
     } else {
       tipText = `${factor >= 0 ? '+' : ''}${factor}`;
     }
@@ -1187,7 +1187,7 @@ function setRowSwapTarget(rowWrapper, isSwapArea = false, event = null) {
   }
 
   currentDragTarget = { type: 'row', row: rowIndex, rowWrapper, swapArea: isSwapArea };
-  const tipText = isSwapArea ? '↕ swap now' : '↕ swap';
+  const tipText = isSwapArea ? '↑↓ swap rows' : 'add row...';
   if (isSwapArea) {
     dragTip?.classList.add('swap-active');
   } else {
