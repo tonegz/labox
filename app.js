@@ -1178,7 +1178,10 @@ function hideDragTip() {
 function setRowSwapTarget(rowWrapper, isSwapArea = false, event = null) {
   const rowIndex = Number(rowWrapper.dataset.row);
   if (dragSourceRow === null || rowIndex === dragSourceRow) return;
-  if (currentDragTarget?.type === 'row' && currentDragTarget.row === rowIndex && currentDragTarget.swapArea === isSwapArea) return;
+  if (currentDragTarget?.type === 'row' && currentDragTarget.row === rowIndex && currentDragTarget.swapArea === isSwapArea) {
+    if (event) updateDragTipPosition(event);
+    return;
+  }
 
   clearDragTargetState();
   rowWrapper.classList.add('swap-target');
