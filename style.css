@@ -482,10 +482,20 @@ p {
   align-items: center;
 }
 
+.row-transform-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.row-transform-panel h2 {
+  margin-bottom: 0;
+}
+
 button {
   border: none;
-  border-radius: 999px;
-  padding: 0.8rem 1.1rem;
+  border-radius: 10px;
+  padding: 0.52rem 1rem;
   background: #2563eb;
   color: #ffffff;
   font-weight: 600;
@@ -529,6 +539,9 @@ select {
 
 input.factor-input {
   width: 72px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.88rem;
+  border-radius: 10px;
 }
 
 .matrix-cell input[type="number"] {
