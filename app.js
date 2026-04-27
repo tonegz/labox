@@ -996,6 +996,11 @@ function flashRowHeaders(...wrappers) {
 function updateRowIndices() {
   const rowWrappers = Array.from(matrixContainer.querySelectorAll('.matrix-row'));
   rowWrappers.forEach((wrapper, rowIndex) => {
+    // The wrapper and data-cells must be updated too — omitting them leaves
+    // stale dataset.row values that cause wrong-row targeting on subsequent
+    // drags after an animated swap (which skips a full renderMatrix).
+    wrapper.dataset.row = rowIndex;
+
     const header = wrapper.querySelector('.row-header');
     if (header) {
       header.textContent = `Row ${rowIndex + 1}`;
@@ -1005,6 +1010,9 @@ function updateRowIndices() {
     if (dragHandle) {
       dragHandle.dataset.row = rowIndex;
     }
+    wrapper.querySelectorAll('.matrix-cell[data-col]').forEach((cell) => {
+      cell.dataset.row = rowIndex;
+    });
     wrapper.querySelectorAll('input[type="text"]').forEach((input) => {
       input.dataset.row = rowIndex;
     });
