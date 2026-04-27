@@ -171,6 +171,7 @@ const modalCancelActionButton = document.getElementById('modal-cancel-action');
 const rowMultiplierButtons = document.querySelectorAll('[data-multiplier]');
 const dragTip = document.getElementById('drag-tip');
 const fractionModeToggle = document.getElementById('fraction-mode-toggle');
+const matrixEditorPanel = matrixWrapper.closest('.panel');
 
 // ---------------------------------------------------------------------------
 // Resize state
@@ -1205,6 +1206,53 @@ function clearRowSwapTarget(rowWrapper) {
   }
 }
 
+// How many pixels to the left of the drag-handle column count as "swap zone".
+const SWAP_GUTTER_PX = 14;
+
+/**
+ * If the pointer is in the left gutter (up to SWAP_GUTTER_PX to the left of
+ * the matrix container) AND vertically over a row different from the drag
+ * source, return that row wrapper.  Otherwise return null.
+ */
+function getGutterSwapRow(event) {
+  if (dragSourceRow === null) return null;
+  const containerRect = matrixContainer.getBoundingClientRect();
+  // Must be to the LEFT of the container and within the gutter band.
+  if (event.clientX >= containerRect.left) return null;
+  if (event.clientX < containerRect.left - SWAP_GUTTER_PX) return null;
+  // Find the row whose vertical bounds contain the cursor.
+  const rows = matrixContainer.querySelectorAll('.matrix-row');
+  for (const row of rows) {
+    const rect = row.getBoundingClientRect();
+    if (event.clientY >= rect.top && event.clientY < rect.bottom) {
+      if (Number(row.dataset.row) === dragSourceRow) return null;
+      return row;
+    }
+  }
+  return null;
+}
+
+function onPanelDragOver(event) {
+  const targetRow = getGutterSwapRow(event);
+  if (!targetRow) return; // not in gutter — normal row/cell handlers already cover it
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  setRowSwapTarget(targetRow, true, event);
+}
+
+function onPanelDrop(event) {
+  const targetRow = getGutterSwapRow(event);
+  if (!targetRow) return;
+  event.preventDefault();
+  const targetIndex = Number(targetRow.dataset.row);
+  const sourceIndex = dragSourceRow ?? Number(event.dataTransfer.getData('text/plain'));
+  dragSourceRow = null;
+  clearDragTargetState();
+  if (!Number.isNaN(sourceIndex) && sourceIndex !== targetIndex) {
+    swapRowsByIndex(sourceIndex, targetIndex);
+  }
+}
+
 function clearDragTargetState() {
   if (currentDragTarget?.type === 'cell' && currentDragTarget.cell) {
     currentDragTarget.cell.classList.remove('drag-over');
@@ -1443,6 +1491,12 @@ window.addEventListener('pointermove', onResizeMove);
 window.addEventListener('pointerup', onResizeEnd);
 window.addEventListener('pointercancel', onResizeEnd);
 window.addEventListener('dragend', clearDragTargetState);
+
+// Extended swap drop zone: gutter to the left of the drag handles.
+if (matrixEditorPanel) {
+  matrixEditorPanel.addEventListener('dragover', onPanelDragOver);
+  matrixEditorPanel.addEventListener('drop', onPanelDrop);
+}
 
 // ---------------------------------------------------------------------------
 // Button state
