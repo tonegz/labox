@@ -119,6 +119,7 @@ function renderMatrix() {
       input.addEventListener('input', onCellChange);
       input.addEventListener('focus', onCellFocus);
       input.addEventListener('blur', onCellBlur);
+      input.addEventListener('keydown', onCellKeyDown);
       input.addEventListener('wheel', onNumberInputWheel, { passive: false });
       cell.appendChild(input);
       rowWrapper.appendChild(cell);
@@ -315,6 +316,26 @@ function onNumberInputWheel(event) {
 
 function onCellFocus(event) {
   event.target.select();
+}
+
+function onCellKeyDown(event) {
+  if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+  event.preventDefault();
+
+  const input = event.target;
+  const row = Number(input.dataset.row);
+  const col = Number(input.dataset.col);
+  const totalRows = state.matrix.length;
+
+  let nextRow = row;
+  if (event.key === 'ArrowUp' && row > 0) nextRow = row - 1;
+  else if (event.key === 'ArrowDown' && row < totalRows - 1) nextRow = row + 1;
+  else return;
+
+  const nextInput = matrixContainer.querySelector(
+    `input[data-row="${nextRow}"][data-col="${col}"]`
+  );
+  if (nextInput) nextInput.focus();
 }
 
 function onCellBlur(event) {
