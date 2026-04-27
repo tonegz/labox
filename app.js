@@ -119,11 +119,11 @@ function parseFrac(s) {
 
 const state = {
   matrix: [
-    [1, 2, 3],
-    [4, 5, 6],
-    [7, 8, 9],
+    [makeFrac(1, 1), makeFrac(2, 1), makeFrac(3, 1)],
+    [makeFrac(4, 1), makeFrac(5, 1), makeFrac(6, 1)],
+    [makeFrac(7, 1), makeFrac(8, 1), makeFrac(9, 1)],
   ],
-  fractionMode: false,
+  fractionMode: true,
 };
 
 // ---------------------------------------------------------------------------
@@ -213,6 +213,61 @@ function updateMatrixJson() {
 }
 
 /**
+ * Build the static (non-editing) fraction display element for a cell.
+ * Integers show as plain text; proper fractions show num / bar / den.
+ */
+function createFracDisplay(f) {
+  const div = document.createElement('div');
+  div.className = 'frac-display';
+
+  if (f.den === 1) {
+    // Integer — wrap text in .frac-inner so the selection highlight
+    // targets the same class as proper fractions.
+    div.classList.add('frac-integer');
+    const span = document.createElement('span');
+    span.className = 'frac-inner';
+    span.textContent = String(f.num);
+    div.appendChild(span);
+  } else {
+    // Wrap in an inline-flex column so the bar auto-sizes to
+    // max(numerator width, denominator width) via align-items: stretch.
+    const inner = document.createElement('div');
+    inner.className = 'frac-inner';
+
+    const numSpan = document.createElement('span');
+    numSpan.className = 'frac-num';
+    numSpan.textContent = String(f.num);
+
+    const bar = document.createElement('span');
+    bar.className = 'frac-bar';
+    bar.setAttribute('aria-hidden', 'true');
+
+    const denSpan = document.createElement('span');
+    denSpan.className = 'frac-den';
+    denSpan.textContent = String(f.den);
+
+    inner.appendChild(numSpan);
+    inner.appendChild(bar);
+    inner.appendChild(denSpan);
+    div.appendChild(inner);
+  }
+
+  return div;
+}
+
+/** Replace the frac-display in a single cell without re-rendering the whole matrix. */
+function updateCellFracDisplay(rowIndex, colIndex) {
+  if (!state.fractionMode) return;
+  const cell = matrixContainer.querySelector(
+    `.matrix-cell[data-row="${rowIndex}"][data-col="${colIndex}"]`
+  );
+  if (!cell) return;
+  const existing = cell.querySelector('.frac-display');
+  if (existing) existing.remove();
+  cell.appendChild(createFracDisplay(state.matrix[rowIndex][colIndex]));
+}
+
+/**
  * In fraction mode, the elimination factor for zeroing out column `col` of
  * `targetRow` using `sourceRow` is always exact: -(target/source).
  * In float mode we only offer the shortcut when the ratio is an integer.
@@ -242,6 +297,7 @@ function updateFractionModeUI() {
   const on = state.fractionMode;
   fractionModeToggle.textContent = on ? 'Fraction mode: On' : 'Fraction mode: Off';
   fractionModeToggle.classList.toggle('fraction-mode-active', on);
+  matrixContainer.classList.toggle('fraction-mode', on);
 
   const hint = on ? 'e.g. 1/3' : '';
   [scaleFactorInput, addFactorInput, modalCustomFactor].forEach((input) => {
@@ -332,17 +388,20 @@ function renderMatrix() {
       input.addEventListener('blur', onCellBlur);
       input.addEventListener('keydown', onCellKeyDown);
       input.addEventListener('wheel', onNumberInputWheel, { passive: false });
+      // In fraction mode a click on the cell should switch to plain-text edit view.
+      // mousedown fires before focus, so the cell is already .cell-editing when
+      // onCellFocus runs and the input becomes visible immediately.
+      input.addEventListener('mousedown', onCellMouseDown);
       cell.appendChild(input);
+
+      if (state.fractionMode) {
+        cell.appendChild(createFracDisplay(value));
+      }
+
       rowWrapper.appendChild(cell);
     });
 
     matrixContainer.appendChild(rowWrapper);
-  });
-
-  // Widen cells in fraction mode so fractions like "-10/11" fit comfortably
-  matrixContainer.querySelectorAll('.matrix-cell:not(.row-header):not(.row-drag-handle)').forEach((cell) => {
-    cell.style.width = state.fractionMode ? '72px' : '';
-    cell.style.minWidth = state.fractionMode ? '72px' : '';
   });
 
   matrixSizeLabel.textContent = `Matrix size: ${rows} × ${cols}`;
@@ -539,14 +598,86 @@ function onNumberInputWheel(event) {
   event.currentTarget.blur();
 }
 
+/** Switch a fraction-mode cell into edit view (show plain-text input). */
+function enterCellEditing(input) {
+  if (!state.fractionMode) return;
+  const cell = input.closest('.matrix-cell');
+  if (!cell) return;
+  cell.classList.remove('cell-selected');
+  cell.classList.add('cell-editing');
+}
+
+/**
+ * Validate and commit the current input value, update the frac display, then
+ * return the cell to the "selected" state (stacked view + blue highlight).
+ * Called when Enter is pressed while a cell is in cell-editing mode.
+ */
+function exitCellEditing(input) {
+  if (!state.fractionMode) return;
+  const cell = input.closest('.matrix-cell');
+  if (!cell) return;
+
+  const rowIndex = Number(input.dataset.row);
+  const colIndex = Number(input.dataset.col);
+
+  if (input.value === '') {
+    state.matrix[rowIndex][colIndex] = zeroValue();
+    input.value = '0';
+    updateMatrixJson();
+  } else {
+    const f = parseFrac(input.value);
+    if (f === null) {
+      // Restore last committed value
+      input.value = fracToString(state.matrix[rowIndex][colIndex]);
+    } else {
+      state.matrix[rowIndex][colIndex] = f;
+      input.value = fracToString(f); // normalize (e.g. "2/4" → "1/2")
+      updateMatrixJson();
+    }
+  }
+
+  updateCellFracDisplay(rowIndex, colIndex);
+  cell.classList.remove('cell-editing');
+  cell.classList.add('cell-selected');
+}
+
+/** Called on mousedown so the input is visible before focus fires.
+ *  First click → focus will add cell-selected.
+ *  Second click on an already-selected cell → promote to editing. */
+function onCellMouseDown(event) {
+  if (!state.fractionMode) return;
+  const cell = event.currentTarget.closest('.matrix-cell');
+  if (cell?.classList.contains('cell-selected')) {
+    enterCellEditing(event.currentTarget);
+  }
+  // First click: leave it to onCellFocus to add cell-selected.
+}
+
 function onCellFocus(event) {
   event.target.select();
+  // In fraction mode, mark the cell as "selected" (stacked view + highlight)
+  // unless we're already in full editing mode (e.g. clicked directly to edit).
+  if (state.fractionMode) {
+    const cell = event.target.closest('.matrix-cell');
+    if (cell && !cell.classList.contains('cell-editing')) {
+      cell.classList.add('cell-selected');
+    }
+  }
 }
 
 function onCellKeyDown(event) {
   if (event.key === ' ') {
     event.preventDefault();
     return;
+  }
+
+  // In fraction mode, switch to edit view when the user types a content-changing
+  // key.  Navigation keys (Arrow*, Enter, Tab, Escape, modifier combos) are
+  // excluded so arrow-key traversal keeps the stacked fraction visible.
+  if (state.fractionMode) {
+    const isEditKey = !event.ctrlKey && !event.metaKey
+      && (event.key.length === 1 || event.key === 'Backspace' || event.key === 'Delete');
+    if (isEditKey) enterCellEditing(event.target);
   }
 
   const input = event.target;
@@ -587,6 +718,19 @@ function onCellKeyDown(event) {
 
   if (event.key === 'Enter') {
     event.preventDefault();
+    if (state.fractionMode) {
+      const cell = input.closest('.matrix-cell');
+      if (cell?.classList.contains('cell-selected')) {
+        // Enter on selected → go to plain-text editing, cursor at end.
+        enterCellEditing(input);
+        input.setSelectionRange(input.value.length, input.value.length);
+      } else if (cell?.classList.contains('cell-editing')) {
+        // Enter on editing → validate, commit, return to selected (stacked) view.
+        exitCellEditing(input);
+      }
+      return;
+    }
+    // Non-fraction mode: toggle between all-selected and cursor-at-end.
     if (allSelected) {
       input.setSelectionRange(input.value.length, input.value.length);
     } else {
@@ -604,6 +748,13 @@ function focusCellAt(row, col) {
 
 function onCellBlur(event) {
   const input = event.target;
+  // Always clear both states on blur so the stacked display returns cleanly.
+  const blurCell = input.closest('.matrix-cell');
+  if (blurCell) {
+    blurCell.classList.remove('cell-editing');
+    blurCell.classList.remove('cell-selected');
+  }
+
   const rowIndex = Number(input.dataset.row);
   const colIndex = Number(input.dataset.col);
 
@@ -611,6 +762,7 @@ function onCellBlur(event) {
     state.matrix[rowIndex][colIndex] = zeroValue();
     input.value = '0';
     updateMatrixJson();
+    if (state.fractionMode) updateCellFracDisplay(rowIndex, colIndex);
     return;
   }
 
@@ -620,7 +772,8 @@ function onCellBlur(event) {
       // Restore the last good value
       input.value = fracToString(state.matrix[rowIndex][colIndex]);
     }
-    // If valid, state was already updated in onCellChange
+    // State was already updated on each valid keystroke in onCellChange
+    updateCellFracDisplay(rowIndex, colIndex);
   } else {
     const numericValue = Number(input.value);
     if (!Number.isFinite(numericValue)) {
@@ -1358,4 +1511,5 @@ addRowButtonTransform.addEventListener('click', addScaledRow);
 // Boot
 // ---------------------------------------------------------------------------
 
+updateFractionModeUI();
 renderMatrix();

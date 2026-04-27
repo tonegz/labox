@@ -227,6 +227,8 @@ p {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative; /* needed so absolute children (frac-display, input overlay) are positioned inside */
+  font-weight: 500;
 }
 
 .matrix-row:last-child .matrix-cell {
@@ -311,6 +313,10 @@ p {
   margin: 0;
   border: none;
   background: transparent;
+  /* Browsers don't inherit font into inputs by default; force it so the
+     input text exactly matches the fraction display spans (same face + weight). */
+  font-family: inherit;
+  font-weight: inherit;
   font-size: 1rem;
   line-height: 1;
   text-align: center;
@@ -339,6 +345,101 @@ p {
 .matrix-cell:focus-within {
   outline: none;
   box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+
+/* ---- Stacked fraction display ---- */
+
+/* Hidden by default (float mode). Absolutely fills the cell so the input
+   can sit behind it as a transparent click target. */
+.frac-display {
+  display: none;
+  position: absolute;
+  inset: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  user-select: none;
+  font-size: 0.85rem;
+  line-height: 1.2;
+}
+
+/* Integer values (den === 1) render at normal body size */
+.frac-display.frac-integer {
+  font-size: 1rem;
+}
+
+/* Inner column: display: inline-flex so its width is exactly
+   max(numerator intrinsic width, denominator intrinsic width).
+   align-items: stretch then stretches the bar to that same width. */
+.frac-inner {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* Integer wrapper needs block-level padding to look right in selected state. */
+.frac-display.frac-integer .frac-inner {
+  display: inline-block;
+}
+
+.frac-num,
+.frac-den {
+  display: block;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* CSS border instead of a background div — always exactly 1px on every row */
+.frac-bar {
+  display: block;
+  height: 0;
+  border-top: 1px solid currentColor;
+  opacity: 0.5;
+  margin: 2px 0;
+}
+
+/* In fraction mode: show the stacked display */
+.fraction-mode .frac-display {
+  display: flex;
+}
+
+/* In fraction mode: make the input an invisible-but-clickable overlay */
+.fraction-mode .matrix-cell input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 5;
+  background: transparent;
+}
+
+/* Only reveal the plain-text input (and hide the stacked display) when
+   the user is actively editing — not merely navigating by arrow key.
+   The .cell-editing class is added in JS on mousedown or typing keys. */
+.fraction-mode .matrix-cell.cell-editing input {
+  opacity: 1;
+  background: #ffffff;
+}
+
+.fraction-mode .matrix-cell.cell-editing .frac-display {
+  display: none;
+}
+
+/* Selected state: fraction (or integer) text highlighted using the OS native
+   selection colours so it matches the browser's own text-selection appearance. */
+.fraction-mode .matrix-cell.cell-selected .frac-inner {
+  background: Highlight;
+  color: HighlightText;
+  border-radius: 3px;
+  padding: 2px 5px;
+}
+
+/* Make the bar fully opaque so it stays clearly visible against blue. */
+.fraction-mode .matrix-cell.cell-selected .frac-bar {
+  opacity: 1;
 }
 
 .button-row,
