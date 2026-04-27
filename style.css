@@ -108,6 +108,31 @@ p {
   .app-header p {
     display: none;
   }
+
+  .app-shell {
+    padding: 16px 0;
+  }
+
+  .app-header {
+    padding: 0 16px;
+    margin-bottom: 12px;
+  }
+
+  .dashboard-grid {
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .panel {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    box-shadow: none;
+  }
+
+  .matrix-controls-panel {
+    max-width: none;
+  }
 }
 
 .matrix-wrapper {
