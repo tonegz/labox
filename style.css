@@ -305,6 +305,10 @@ p {
   touch-action: none;
 }
 
+.matrix-row.swap-nudge {
+  transform: translateX(6px);
+}
+
 .matrix-row.swap-target .row-header,
 .matrix-row.swap-target .row-drag-handle,
 .matrix-cell.row-header.drag-over,

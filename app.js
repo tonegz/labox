@@ -1063,8 +1063,11 @@ function onRowDragOver(event) {
 function updateDragHover(event) {
   if (dragSourceRow === null) return;
 
-  const cell = event.target.closest('.matrix-cell');
-  const rowWrapper = event.target.closest('.matrix-row');
+  const containerRect = matrixContainer.getBoundingClientRect();
+  const x = event.clientX;
+
+  // Use layout-based Y detection so CSS translateX nudge doesn't affect targeting.
+  const rowWrapper = getRowByLayoutY(event.clientY);
   if (!rowWrapper) {
     clearDragTargetState();
     return;
@@ -1076,17 +1079,22 @@ function updateDragHover(event) {
     return;
   }
 
-  if (cell && (cell.classList.contains('row-header') || cell.classList.contains('row-drag-handle'))) {
-    setRowSwapTarget(rowWrapper, cell.classList.contains('row-drag-handle'), event);
-    return;
+  // Zone detection against fixed container coordinates (unaffected by row translate).
+  if (x < containerRect.left + DRAG_HANDLE_WIDTH) {
+    // Drag-handle column or gutter → swap
+    setRowSwapTarget(rowWrapper, true, event);
+  } else if (x < containerRect.left + DRAG_HANDLE_WIDTH + ROW_HEADER_WIDTH) {
+    // Row-header column → add
+    setRowSwapTarget(rowWrapper, false, event);
+  } else {
+    // Data-cell column — fall back to DOM hit-test (cells don't translate)
+    const cell = event.target.closest('.matrix-cell[data-col]');
+    if (cell) {
+      setCellDragTarget(cell, targetRow, Number(cell.dataset.col), event);
+    } else {
+      clearDragTargetState();
+    }
   }
-
-  if (cell && typeof cell.dataset.col !== 'undefined') {
-    setCellDragTarget(cell, targetRow, Number(cell.dataset.col), event);
-    return;
-  }
-
-  clearDragTargetState();
 }
 
 function setCellDragTarget(cell, targetRow, targetCol, event) {
@@ -1133,10 +1141,7 @@ function onCellDragEnter(event) {
 }
 
 function onCellDragLeave(event) {
-  const currentRow = event.currentTarget.closest('.matrix-row');
-  if (currentRow && currentRow.contains(event.relatedTarget)) return;
   event.currentTarget.classList.remove('drag-over');
-  clearDragTargetState();
 }
 
 function updateDragTipPosition(event) {
@@ -1169,8 +1174,19 @@ function setRowSwapTarget(rowWrapper, isSwapArea = false, event = null) {
     return;
   }
 
+  // Same row but swap-area flag changed — update nudge and tip without clearing.
+  if (currentDragTarget?.type === 'row' && currentDragTarget.row === rowIndex) {
+    currentDragTarget.swapArea = isSwapArea;
+    rowWrapper.classList.toggle('swap-nudge', isSwapArea);
+    dragTip?.classList.toggle('swap-active', isSwapArea);
+    const tipText = isSwapArea ? '↑↓ swap rows' : 'add row...';
+    showDragTip(event || { clientX: rowWrapper.getBoundingClientRect().left + 20, clientY: rowWrapper.getBoundingClientRect().top + 20 }, tipText);
+    return;
+  }
+
   clearDragTargetState();
   rowWrapper.classList.add('swap-target');
+  if (isSwapArea) rowWrapper.classList.add('swap-nudge');
   const handle = rowWrapper.querySelector('.row-drag-handle');
   if (handle) {
     handle.classList.add('swap-target');
@@ -1188,7 +1204,7 @@ function setRowSwapTarget(rowWrapper, isSwapArea = false, event = null) {
 }
 
 function clearRowSwapTarget(rowWrapper) {
-  rowWrapper.classList.remove('swap-target');
+  rowWrapper.classList.remove('swap-target', 'swap-nudge');
   const handle = rowWrapper.querySelector('.row-drag-handle');
   if (handle) {
     handle.classList.remove('swap-target');
@@ -1197,6 +1213,22 @@ function clearRowSwapTarget(rowWrapper) {
 
 // How many pixels to the left of the drag-handle column count as "swap zone".
 const SWAP_GUTTER_PX = 14;
+const DRAG_HANDLE_WIDTH = 14; // matches .matrix-cell.row-drag-handle { width: 14px }
+const ROW_HEADER_WIDTH = 58;  // matches .matrix-cell.row-header { width: 58px }
+
+/**
+ * Find which .matrix-row contains clientY, using offsetTop (layout position,
+ * unaffected by CSS transforms) so row nudge animations don't move the target.
+ */
+function getRowByLayoutY(clientY) {
+  const containerTop = matrixContainer.getBoundingClientRect().top;
+  for (const row of matrixContainer.querySelectorAll('.matrix-row')) {
+    const top    = containerTop + row.offsetTop;
+    const bottom = top + row.offsetHeight;
+    if (clientY >= top && clientY < bottom) return row;
+  }
+  return null;
+}
 
 /**
  * If the pointer is in the left gutter (up to SWAP_GUTTER_PX to the left of
@@ -1222,11 +1254,9 @@ function getGutterSwapRow(event) {
 }
 
 function onPanelDragOver(event) {
-  const targetRow = getGutterSwapRow(event);
-  if (!targetRow) return; // not in gutter — normal row/cell handlers already cover it
   event.preventDefault();
   event.dataTransfer.dropEffect = 'move';
-  setRowSwapTarget(targetRow, true, event);
+  updateDragHover(event);
 }
 
 function onPanelDrop(event) {
@@ -1259,10 +1289,7 @@ function onRowDragEnter(event) {
 
 function onRowDragLeave(event) {
   const rowWrapper = event.currentTarget.closest('.matrix-row');
-  if (!rowWrapper) return;
-  if (rowWrapper.contains(event.relatedTarget)) return;
-  rowWrapper.classList.remove('drag-over');
-  clearDragTargetState();
+  if (rowWrapper) rowWrapper.classList.remove('drag-over');
 }
 
 function onRowDrop(event) {
