@@ -228,7 +228,7 @@ p {
   align-items: center;
   justify-content: center;
   position: relative; /* needed so absolute children (frac-display, input overlay) are positioned inside */
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .matrix-row:last-child .matrix-cell {
