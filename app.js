@@ -67,7 +67,7 @@ function renderMatrix() {
   state.matrix.forEach((row, rowIndex) => {
     const rowWrapper = document.createElement('div');
     rowWrapper.className = 'matrix-row';
-    rowWrapper.style.gridTemplateColumns = `auto auto repeat(${cols}, minmax(72px, 1fr))`;
+    rowWrapper.style.gridTemplateColumns = `auto auto repeat(${cols}, minmax(58px, 1fr))`;
     rowWrapper.dataset.row = rowIndex;
     rowWrapper.addEventListener('dragover', onRowDragOver);
     rowWrapper.addEventListener('dragenter', onRowDragEnter);
@@ -109,8 +109,8 @@ function renderMatrix() {
       cell.addEventListener('drop', onRowDrop);
 
       const input = document.createElement('input');
-      input.type = 'number';
-      input.step = 'any';
+      input.type = 'text';
+      input.inputMode = 'decimal';
       input.placeholder = '0';
       input.value = value;
       input.dataset.row = rowIndex;
@@ -324,21 +324,55 @@ function onCellKeyDown(event) {
     return;
   }
 
-  if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
-  event.preventDefault();
-
   const input = event.target;
   const row = Number(input.dataset.row);
   const col = Number(input.dataset.col);
   const totalRows = state.matrix.length;
+  const totalCols = state.matrix[0]?.length ?? 0;
+  const start = input.selectionStart;
+  const end = input.selectionEnd;
+  const len = input.value.length;
+  const allSelected = start === 0 && end === len;
+  const cursorAtStart = start === 0 && end === 0;
+  const cursorAtEnd = start === len && end === len;
 
-  let nextRow = row;
-  if (event.key === 'ArrowUp' && row > 0) nextRow = row - 1;
-  else if (event.key === 'ArrowDown' && row < totalRows - 1) nextRow = row + 1;
-  else return;
+  if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+    event.preventDefault();
+    let nextRow = row;
+    if (event.key === 'ArrowUp' && row > 0) nextRow = row - 1;
+    else if (event.key === 'ArrowDown' && row < totalRows - 1) nextRow = row + 1;
+    else return;
+    focusCellAt(nextRow, col);
+    return;
+  }
 
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+    const triggerLeft = allSelected || cursorAtStart;
+    const triggerRight = allSelected || cursorAtEnd;
+    if ((event.key === 'ArrowLeft' && !triggerLeft)
+        || (event.key === 'ArrowRight' && !triggerRight)) return;
+    event.preventDefault();
+    let nextCol = col;
+    if (event.key === 'ArrowLeft' && col > 0) nextCol = col - 1;
+    else if (event.key === 'ArrowRight' && col < totalCols - 1) nextCol = col + 1;
+    else return;
+    focusCellAt(row, nextCol);
+    return;
+  }
+
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    if (allSelected) {
+      input.setSelectionRange(input.value.length, input.value.length);
+    } else {
+      input.select();
+    }
+  }
+}
+
+function focusCellAt(row, col) {
   const nextInput = matrixContainer.querySelector(
-    `input[data-row="${nextRow}"][data-col="${col}"]`
+    `input[data-row="${row}"][data-col="${col}"]`
   );
   if (nextInput) nextInput.focus();
 }
@@ -351,6 +385,12 @@ function onCellBlur(event) {
     state.matrix[rowIndex][colIndex] = 0;
     input.value = '0';
     matrixJson.textContent = JSON.stringify(state.matrix, null, 2);
+    return;
+  }
+  // If the user left an unparseable value in the cell, restore from state.
+  const numericValue = Number(input.value);
+  if (!Number.isFinite(numericValue)) {
+    input.value = String(state.matrix[rowIndex][colIndex]);
   }
 }
 

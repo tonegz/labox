@@ -26,7 +26,7 @@ body {
 
 h1 {
   margin: 0;
-  font-size: clamp(2rem, 3vw, 2.75rem);
+  font-size: clamp(1.5rem, 2.25vw, 2rem);
 }
 
 p {
@@ -94,6 +94,12 @@ p {
 @media (max-width: 900px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .app-header p {
+    display: none;
   }
 }
 
@@ -212,8 +218,8 @@ height: 14px;
 }
 
 .matrix-cell {
-  width: 72px;
-  height: 72px;
+  width: 58px;
+  height: 58px;
   border-left: 1px solid #d1d5db;
   border-top: 1px solid #d1d5db;
   border-radius: 0;
@@ -232,14 +238,15 @@ height: 14px;
 }
 
 .matrix-cell.row-header {
-  width: 72px;
-  min-width: 72px;
-  padding: 0 10px;
+  width: 58px;
+  min-width: 58px;
+  padding: 0 6px 0 4px;
   border-radius: 0;
   border-left: none;
   background: #eef2ff;
   color: #1e3a8a;
-  font-weight: 700;
+  font-weight: 500;
+  line-height: 1;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -249,28 +256,19 @@ height: 14px;
 }
 
 .matrix-cell.row-drag-handle {
-  width: 32px;
-  min-width: 32px;
-  margin-left: -8px;
+  width: 14px;
+  min-width: 14px;
+  margin-left: 0;
   padding: 0;
-  border-radius: 0;
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
   border-right: none;
   background: #eef2ff;
+  background-clip: padding-box;
+  overflow: hidden;
   cursor: grab;
   position: relative;
   touch-action: none;
-}
-
-.matrix-cell.row-drag-handle::before {
-  content: '';
-  position: absolute;
-  top: 8px;
-  left: 10px;
-  right: 10px;
-  bottom: 8px;
-  background-image: radial-gradient(circle, #93c5fd 30%, transparent 31%);
-  background-size: 6px 6px;
-  opacity: 0.75;
 }
 
 .matrix-row.swap-target .row-header,
@@ -314,6 +312,7 @@ height: 14px;
   border: none;
   background: transparent;
   font-size: 1rem;
+  line-height: 1;
   text-align: center;
   box-sizing: border-box;
   border-radius: 0;
