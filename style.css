@@ -489,6 +489,10 @@ input.factor-input {
   background: #ffffff;
 }
 
+input.factor-input {
+  width: 72px;
+}
+
 .matrix-cell input[type="number"] {
   border: none;
   border-radius: 0;
@@ -608,14 +612,10 @@ select.flash {
 }
 
 .custom-multiplier label {
-  flex: 1 1 160px;
+  flex: 1 1 auto;
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.custom-multiplier input {
-  width: 100%;
 }
 
 .cancel-button {
