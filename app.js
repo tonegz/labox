@@ -172,11 +172,19 @@ function getResizeMetrics() {
 }
 
 function updateResizeOverlay(newRows, newCols) {
-  const { rowHeight, colWidth, dragHandleWidth, headerWidth } = getResizeMetrics();
-  const width = headerWidth + newCols * colWidth;
+  const { rowHeight, colWidth } = getResizeMetrics();
+  const firstRow = matrixContainer.querySelector('.matrix-row');
+  const firstDataCell = firstRow?.querySelector('.matrix-cell:nth-child(3)');
+  const wrapperRect = matrixWrapper.getBoundingClientRect();
+  const cellRect = firstDataCell?.getBoundingClientRect();
+
+  const overlayLeft = cellRect ? cellRect.left - wrapperRect.left : 0;
+  const overlayTop = cellRect ? cellRect.top - wrapperRect.top : 0;
+  const width = newCols * colWidth;
   const height = newRows * rowHeight;
 
-  resizeOverlay.style.left = `${dragHandleWidth}px`;
+  resizeOverlay.style.left = `${overlayLeft}px`;
+  resizeOverlay.style.top = `${overlayTop}px`;
   resizeOverlay.style.width = `${width}px`;
   resizeOverlay.style.height = `${height}px`;
   resizeDimensions.textContent = `${newRows}×${newCols}`;
