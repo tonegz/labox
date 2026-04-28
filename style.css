@@ -631,8 +631,12 @@ select.flash {
   width: min(520px, 100%);
   background: #ffffff;
   border-radius: 24px;
-  padding: 28px;
+  padding: 16px 28px 28px;
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+}
+
+.modal-content h3 {
+  margin-top: 0;
 }
 
 #scale-row-modal .modal-content {
