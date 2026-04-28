@@ -1365,6 +1365,18 @@ function onRowDrop(event) {
   const sourceIndex = dragSourceRow !== null ? dragSourceRow : Number(event.dataTransfer.getData('text/plain'));
   dragSourceRow = null;
 
+  // Same-row drop: scale-row drag action.
+  if (sourceIndex === targetRow && currentDragTarget?.type === 'scale-row') {
+    const { directScale, factor } = currentDragTarget;
+    clearDragTargetState();
+    if (directScale && factor !== null) {
+      scaleRowByFactor(sourceIndex, factor);
+    } else {
+      openScaleRowModal(sourceIndex);
+    }
+    return;
+  }
+
   if (Number.isNaN(sourceIndex) || sourceIndex === targetRow) {
     clearDragTargetState();
     return;
@@ -1435,6 +1447,48 @@ function closeRowActionModal() {
   restoreFocusFromModal();
 }
 
+// ---------------------------------------------------------------------------
+// Scale-row modal (opened by dropping row header onto same-row cell)
+// ---------------------------------------------------------------------------
+
+function openScaleRowModal(rowIndex) {
+  scaleModalRowNum.textContent = String(rowIndex + 1);
+  scaleRowModal.dataset.rowIndex = rowIndex;
+  scaleModalFactor.value = '1';
+  modalReturnFocusTo = document.activeElement;
+  scaleRowModal.classList.remove('hidden');
+  updateScaleModalApplyButton();
+  scaleModalFactor.focus();
+  scaleModalFactor.select();
+}
+
+function closeScaleRowModal() {
+  scaleRowModal.classList.add('hidden');
+  restoreFocusFromModal();
+}
+
+function updateScaleModalApplyButton() {
+  if (state.fractionMode) {
+    const f = parseFrac(scaleModalFactor.value);
+    scaleModalApply.disabled = f === null || fracIsZero(f);
+  } else {
+    const f = Number(scaleModalFactor.value);
+    scaleModalApply.disabled = !scaleModalFactor.value || !Number.isFinite(f) || f === 0;
+  }
+}
+
+function applyScaleRowModal() {
+  const rowIndex = Number(scaleRowModal.dataset.rowIndex);
+  if (state.fractionMode) {
+    const factor = parseFrac(scaleModalFactor.value);
+    if (factor && !fracIsZero(factor)) scaleRowByFactor(rowIndex, factor);
+  } else {
+    const factor = Number(scaleModalFactor.value);
+    if (Number.isFinite(factor) && factor !== 0) scaleRowByFactor(rowIndex, factor);
+  }
+  closeScaleRowModal();
+}
+
 let modalReturnFocusTo = null;
 
 const FOCUSABLE_SELECTOR = [
@@ -1458,6 +1512,7 @@ function focusFirstIn(container) {
 
 function getActiveModal() {
   if (!rowActionModal.classList.contains('hidden')) return rowActionModal;
+  if (!scaleRowModal.classList.contains('hidden')) return scaleRowModal;
   if (!resizeConfirmBackdrop.classList.contains('hidden')) return resizeConfirmBackdrop;
   return null;
 }
@@ -1551,6 +1606,17 @@ resizeConfirmBackdrop.addEventListener('click', (event) => {
   }
 });
 
+// Scale-row modal buttons
+scaleModalApply.addEventListener('click', applyScaleRowModal);
+scaleModalCancel.addEventListener('click', closeScaleRowModal);
+scaleModalFactor.addEventListener('input', updateScaleModalApplyButton);
+scaleModalFactor.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && !scaleModalApply.disabled) applyScaleRowModal();
+});
+scaleRowModal.addEventListener('click', (event) => {
+  if (event.target === scaleRowModal) closeScaleRowModal();
+});
+
 // ---------------------------------------------------------------------------
 // Global keyboard / pointer listeners
 // ---------------------------------------------------------------------------
@@ -1566,6 +1632,8 @@ window.addEventListener('keydown', (event) => {
     cancelResize();
   } else if (!rowActionModal.classList.contains('hidden')) {
     closeRowActionModal();
+  } else if (!scaleRowModal.classList.contains('hidden')) {
+    closeScaleRowModal();
   } else if (!resizeConfirmBackdrop.classList.contains('hidden')) {
     hideResizeConfirm();
   }

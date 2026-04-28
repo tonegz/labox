@@ -635,6 +635,10 @@ select.flash {
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
 }
 
+#scale-row-modal .modal-content {
+  width: min(300px, 100%);
+}
+
 .modal-label {
   margin: 0 0 8px;
   font-weight: 700;
