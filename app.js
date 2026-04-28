@@ -498,14 +498,15 @@ function updateResizeOverlay(newRows, newCols) {
   resizeOverlay.style.height = `${height}px`;
   resizeOverlay.classList.remove('hidden');
 
-  // Label shows spring-back size and is positioned at the top-right corner of
-  // where the spring-back overlay would be (at least 1 in each dimension).
-  const labelCols = Math.max(1, newCols);
-  const labelRows = Math.max(1, newRows);
-  const labelRight = overlayLeft + labelCols * colWidth;
+  // Label text: spring-back size (original for 0×0, else 1 in zero dimension).
+  // Label position: always where the 1×1 corner would be (Math.max(1, ...)).
+  const fullClearLabel = newRows === 0 && newCols === 0;
+  const labelTextRows = fullClearLabel ? resizeStartRows : Math.max(1, newRows);
+  const labelTextCols = fullClearLabel ? resizeStartCols : Math.max(1, newCols);
+  const labelPosRight = overlayLeft + Math.max(1, newCols) * colWidth;
   const labelTop = overlayTop + 10;
-  resizeDimensions.textContent = `${labelRows}×${labelCols}`;
-  resizeDimensions.style.left = `${labelRight}px`;
+  resizeDimensions.textContent = `${labelTextRows}×${labelTextCols}`;
+  resizeDimensions.style.left = `${labelPosRight}px`;
   resizeDimensions.style.top = `${labelTop}px`;
   resizeDimensions.classList.remove('hidden');
 
@@ -524,8 +525,8 @@ function updateResizeOverlay(newRows, newCols) {
   const willLoseData = (newRows < state.matrix.length || newCols < (state.matrix[0]?.length ?? 0))
     && hasNonZeroRemovedCells(newRows, newCols);
   if (willLoseData) {
-    const zeroDrag = newRows === 0 || newCols === 0;
-    resizeWarningText.textContent = zeroDrag
+    const fullClear = newRows === 0 && newCols === 0;
+    resizeWarningText.textContent = fullClear
       ? 'The matrix will be cleared'
       : 'Some non-zero values will be removed';
     // Remove both classes so the element is fully visible; double-rAF ensures
@@ -605,15 +606,24 @@ function onResizeEnd(event) {
   if (newRows === oldRows && newCols === oldCols) return;
 
   const lostData = (newRows < oldRows || newCols < oldCols) && hasNonZeroRemovedCells(newRows, newCols);
-  // Spring back: size must be at least 1×1 after release.
-  const finalRows = Math.max(1, newRows);
-  const finalCols = Math.max(1, newCols);
-  if (finalRows === oldRows && finalCols === oldCols) return;
-  resizeMatrix(finalRows, finalCols);
-  // A zero-dimension drag clears all remaining cells too.
-  if (newRows === 0 || newCols === 0) {
+
+  if (newRows === 0 && newCols === 0) {
+    // Full clear: zero all cells and spring back to original size.
+    const hadData = lostData; // lostData already checked hasNonZeroRemovedCells(0,0)
     state.matrix.forEach((row, r) => row.forEach((_, c) => { state.matrix[r][c] = zeroValue(); }));
+    if (hadData) snapshotHistory('Matrix cleared');
     renderMatrix();
+  } else {
+    // Spring back: size must be at least 1 in each dimension.
+    const finalRows = Math.max(1, newRows);
+    const finalCols = Math.max(1, newCols);
+    if (finalRows === oldRows && finalCols === oldCols) return;
+    resizeMatrix(finalRows, finalCols);
+    // A zero-dimension (but not 0×0) drag clears all remaining cells too.
+    if (newRows === 0 || newCols === 0) {
+      state.matrix.forEach((row, r) => row.forEach((_, c) => { state.matrix[r][c] = zeroValue(); }));
+      renderMatrix();
+    }
   }
   if (lostData) showResizeToast();
 }
