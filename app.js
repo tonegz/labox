@@ -471,8 +471,9 @@ function updateResizeOverlay(newRows, newCols) {
 
   const overlayLeft = cellRect ? cellRect.left - wrapperRect.left : 0;
   const overlayTop = cellRect ? cellRect.top - wrapperRect.top : 0;
-  const width = newCols * colWidth;
-  const height = newRows * rowHeight;
+  const ZERO_DIM_PX = 6; // minimum sliver size so the outline stays visible at 0
+  const width = newCols === 0 ? ZERO_DIM_PX : newCols * colWidth;
+  const height = newRows === 0 ? ZERO_DIM_PX : newRows * rowHeight;
 
   resizeOverlay.style.left = `${overlayLeft}px`;
   resizeOverlay.style.top = `${overlayTop}px`;
@@ -496,7 +497,10 @@ function updateResizeOverlay(newRows, newCols) {
   const willLoseData = (newRows < state.matrix.length || newCols < (state.matrix[0]?.length ?? 0))
     && hasNonZeroRemovedCells(newRows, newCols);
   if (willLoseData) {
-    resizeWarningText.textContent = 'Some non-zero values will be removed';
+    const zeroDrag = newRows === 0 || newCols === 0;
+    resizeWarningText.textContent = zeroDrag
+      ? 'The matrix will be cleared'
+      : 'Some non-zero values will be removed';
     // Remove both classes so the element is fully visible; double-rAF ensures
     // the browser paints the hidden state first so the opacity transition fires.
     resizeWarningBar.classList.remove('warning-fade');
@@ -551,8 +555,8 @@ function onResizeMove(event) {
   const rowDelta = Math.round(deltaY / rowHeight);
   const colDelta = Math.round(deltaX / colWidth);
 
-  const newRows = Math.max(1, resizeStartRows + rowDelta);
-  const newCols = Math.max(1, resizeStartCols + colDelta);
+  const newRows = Math.max(0, resizeStartRows + rowDelta);
+  const newCols = Math.max(0, resizeStartCols + colDelta);
   updateResizeOverlay(newRows, newCols);
 }
 
@@ -572,7 +576,16 @@ function onResizeEnd(event) {
   if (newRows === oldRows && newCols === oldCols) return;
 
   const lostData = (newRows < oldRows || newCols < oldCols) && hasNonZeroRemovedCells(newRows, newCols);
-  resizeMatrix(newRows, newCols);
+  // Spring back: size must be at least 1×1 after release.
+  const finalRows = Math.max(1, newRows);
+  const finalCols = Math.max(1, newCols);
+  if (finalRows === oldRows && finalCols === oldCols) return;
+  resizeMatrix(finalRows, finalCols);
+  // A zero-dimension drag clears all remaining cells too.
+  if (newRows === 0 || newCols === 0) {
+    state.matrix.forEach((row, r) => row.forEach((_, c) => { state.matrix[r][c] = zeroValue(); }));
+    renderMatrix();
+  }
   if (lostData) showResizeToast();
 }
 
