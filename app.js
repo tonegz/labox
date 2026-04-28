@@ -1038,9 +1038,8 @@ function renderHistoryPanel() {
     if (i !== historyPosition) row.addEventListener('click', () => restoreToHistory(i));
     historyList.appendChild(row);
   });
-  if (historyList.lastElementChild) {
-    historyList.lastElementChild.scrollIntoView({ block: 'nearest' });
-  }
+  // Scroll within the history panel's own container — never the page.
+  historyList.scrollTop = historyList.scrollHeight;
 }
 
 // ---------------------------------------------------------------------------
