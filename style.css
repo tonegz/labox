@@ -182,24 +182,6 @@ p {
   z-index: 3;
 }
 
-.resize-confirm-modal {
-  width: auto;
-  max-width: 300px;
-  min-width: 240px;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: 20px;
-  box-shadow: 0 20px 35px rgba(15, 23, 42, 0.22);
-  padding: 20px;
-  z-index: 5;
-}
-
-.resize-confirm-modal p {
-  margin: 0 0 12px;
-  font-size: 0.95rem;
-  color: #111827;
-}
-
 .confirm-actions {
   display: flex;
   align-items: center;
@@ -207,20 +189,58 @@ p {
   gap: 10px;
 }
 
-.resize-confirm-modal button {
-  min-width: 98px;
-  padding: 0.65rem 1rem;
-  border-radius: 12px;
+/* Warning bar shown at the bottom of the matrix while dragging would remove data */
+.resize-warning-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -10px;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #b91c1c;
+  pointer-events: none;
+  z-index: 25;
+  white-space: nowrap;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+#resize-warning-text {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(2px);
+  border-radius: 6px;
+  padding: 2px 10px;
+}
+
+.resize-warning-bar.hidden,
+.resize-warning-bar.warning-fade {
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* Toast notification shown after data-losing resize */
+.resize-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1f2937;
+  color: #f9fafb;
+  font-size: 0.85rem;
+  padding: 9px 18px;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.22);
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 1;
+  transition: opacity 0.5s ease;
   white-space: nowrap;
 }
 
-.resize-confirm-modal .cancel-button {
-  width: auto;
-  margin-top: 0;
-}
-
-.resize-confirm-modal.hidden {
-  display: none;
+.resize-toast.toast-fade {
+  opacity: 0;
 }
 
 .matrix-resize-handle {

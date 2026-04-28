@@ -26,6 +26,9 @@
             </div>
             <div id="drag-tip" class="drag-tip hidden"></div>
             <div id="matrix-resize-handle" class="matrix-resize-handle" title="Resize matrix"></div>
+            <div id="resize-warning-bar" class="resize-warning-bar hidden">
+              <span id="resize-warning-text"></span>
+            </div>
           </div>
         </div>
 
@@ -33,7 +36,7 @@
           <h2>Row transformations</h2>
           <div class="transform-group">
             <label>
-              Swap 
+              Swap
               <select id="swap-row-a"></select>
               with
               <select id="swap-row-b"></select>
@@ -43,7 +46,7 @@
 
           <div class="transform-group">
             <label>
-              Scale 
+              Scale
               <select id="scale-row"></select>
             </label>
             <label>
@@ -153,16 +156,6 @@
       <div class="confirm-actions" style="margin-top:20px">
         <button id="revert-confirm-cancel" type="button" class="cancel-button" style="margin-top:0;width:auto">Cancel</button>
         <button id="revert-confirm-ok" type="button">Revert</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="resize-confirm-backdrop" class="modal hidden" role="dialog" aria-modal="true">
-    <div id="resize-confirm-modal" class="modal-content resize-confirm-modal" role="document">
-      <p>Reducing the matrix to <strong id="resize-confirm-dims"></strong> will remove some non-empty cells.</p>
-      <div class="confirm-actions">
-        <button id="resize-confirm-remove" type="button">Remove</button>
-        <button id="resize-confirm-cancel" type="button" class="cancel-button">Cancel</button>
       </div>
     </div>
   </div>

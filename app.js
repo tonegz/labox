@@ -134,11 +134,8 @@ const matrixContainer = document.getElementById('matrix-container');
 const matrixWrapper = document.getElementById('matrix-wrapper');
 const resizeOverlay = document.getElementById('resize-overlay');
 const resizeDimensions = document.getElementById('resize-dimensions');
-const resizeConfirmBackdrop = document.getElementById('resize-confirm-backdrop');
-const resizeConfirmModal = document.getElementById('resize-confirm-modal');
-const resizeConfirmDims = document.getElementById('resize-confirm-dims');
-const resizeConfirmRemove = document.getElementById('resize-confirm-remove');
-const resizeConfirmCancel = document.getElementById('resize-confirm-cancel');
+const resizeWarningBar = document.getElementById('resize-warning-bar');
+const resizeWarningText = document.getElementById('resize-warning-text');
 const matrixResizeHandle = document.getElementById('matrix-resize-handle');
 const matrixSizeLabel = document.getElementById('matrix-size');
 const matrixJson = document.getElementById('matrix-json');
@@ -199,7 +196,6 @@ let resizeStartRows = 0;
 let resizeStartCols = 0;
 let currentResizeRows = 0;
 let currentResizeCols = 0;
-let pendingResize = null;
 
 // ---------------------------------------------------------------------------
 // Mode-aware value helpers
@@ -495,12 +491,29 @@ function updateResizeOverlay(newRows, newCols) {
     const willRemove = (r >= newRows || c >= newCols) && !isZeroValue(state.matrix[r]?.[c]);
     cell.classList.toggle('cell-will-remove', willRemove);
   });
+
+  // Show / fade the warning text below the matrix.
+  const willLoseData = (newRows < state.matrix.length || newCols < (state.matrix[0]?.length ?? 0))
+    && hasNonZeroRemovedCells(newRows, newCols);
+  if (willLoseData) {
+    resizeWarningText.textContent = 'Some non-zero values will be removed';
+    // Remove both classes so the element is fully visible; double-rAF ensures
+    // the browser paints the hidden state first so the opacity transition fires.
+    resizeWarningBar.classList.remove('warning-fade');
+    resizeWarningBar.classList.remove('hidden');
+  } else {
+    // Fade out quickly; leave 'hidden' off so the transition can run.
+    resizeWarningBar.classList.add('warning-fade');
+  }
 }
 
 function clearResizeHighlights() {
   matrixContainer.querySelectorAll('.matrix-cell.cell-will-remove').forEach((cell) => {
     cell.classList.remove('cell-will-remove');
   });
+  // Instantly hide (no transition needed once drag ends).
+  resizeWarningBar.classList.add('hidden');
+  resizeWarningBar.classList.remove('warning-fade');
 }
 
 function cancelResize() {
@@ -558,32 +571,29 @@ function onResizeEnd(event) {
 
   if (newRows === oldRows && newCols === oldCols) return;
 
-  if ((newRows < oldRows || newCols < oldCols) && hasNonZeroRemovedCells(newRows, newCols)) {
-    pendingResize = { rows: newRows, cols: newCols };
-    showResizeConfirm(newRows, newCols);
-    return;
-  }
-
+  const lostData = (newRows < oldRows || newCols < oldCols) && hasNonZeroRemovedCells(newRows, newCols);
   resizeMatrix(newRows, newCols);
+  if (lostData) showResizeToast();
 }
 
-function showResizeConfirm(rows, cols) {
-  resizeConfirmDims.textContent = `${rows}×${cols}`;
-  modalReturnFocusTo = document.activeElement;
-  resizeConfirmBackdrop.classList.remove('hidden');
-  resizeConfirmCancel.focus();
-}
+let resizeToastTimer = null;
 
-function hideResizeConfirm() {
-  resizeConfirmBackdrop.classList.add('hidden');
-  pendingResize = null;
-  restoreFocusFromModal();
-}
+function showResizeToast() {
+  // Remove any existing toast before creating a new one.
+  document.querySelectorAll('.resize-toast').forEach((el) => el.remove());
+  if (resizeToastTimer) { clearTimeout(resizeToastTimer); resizeToastTimer = null; }
 
-function applyPendingResize() {
-  if (!pendingResize) return;
-  resizeMatrix(pendingResize.rows, pendingResize.cols);
-  pendingResize = null;
+  const toast = document.createElement('div');
+  toast.className = 'resize-toast';
+  toast.textContent = 'Some non-zero values were removed. Use History to revert';
+  document.body.appendChild(toast);
+
+  // Start fade after 3 s, remove from DOM after fade completes (0.5 s).
+  resizeToastTimer = setTimeout(() => {
+    toast.classList.add('toast-fade');
+    toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+    resizeToastTimer = null;
+  }, 3000);
 }
 
 function resizeMatrix(rows, cols) {
@@ -982,9 +992,11 @@ function addRow() {
 function removeRow() {
   if (state.matrix.length <= 1) return;
   const removedRowNum = state.matrix.length; // 1-based, before pop
+  const lostData = state.matrix[state.matrix.length - 1].some((v) => !isZeroValue(v));
   state.matrix.pop();
   snapshotHistory(`Remove row ${removedRowNum}`);
   renderMatrix();
+  if (lostData) showResizeToast();
 }
 
 function addColumn() {
@@ -997,9 +1009,11 @@ function removeColumn() {
   const cols = state.matrix[0].length;
   if (cols <= 1) return;
   const removedColNum = cols; // 1-based, before pop
+  const lostData = state.matrix.some((row) => !isZeroValue(row[cols - 1]));
   state.matrix.forEach((row) => row.pop());
   snapshotHistory(`Remove column ${removedColNum}`);
   renderMatrix();
+  if (lostData) showResizeToast();
 }
 
 // ---------------------------------------------------------------------------
@@ -1670,7 +1684,6 @@ function getActiveModal() {
   if (!rowActionModal.classList.contains('hidden')) return rowActionModal;
   if (!scaleRowModal.classList.contains('hidden')) return scaleRowModal;
   if (!revertConfirmModal.classList.contains('hidden')) return revertConfirmModal;
-  if (!resizeConfirmBackdrop.classList.contains('hidden')) return resizeConfirmBackdrop;
   return null;
 }
 
@@ -1744,25 +1757,6 @@ rowActionModal.addEventListener('click', (event) => {
   }
 });
 
-// ---------------------------------------------------------------------------
-// Resize-confirm modal
-// ---------------------------------------------------------------------------
-
-resizeConfirmRemove.addEventListener('click', () => {
-  applyPendingResize();
-  hideResizeConfirm();
-});
-
-resizeConfirmCancel.addEventListener('click', () => {
-  hideResizeConfirm();
-});
-
-resizeConfirmBackdrop.addEventListener('click', (event) => {
-  if (event.target === resizeConfirmBackdrop) {
-    hideResizeConfirm();
-  }
-});
-
 // Revert-confirm modal buttons
 revertConfirmOk.addEventListener('click', applyRevert);
 revertConfirmCancel.addEventListener('click', cancelRevert);
@@ -1798,8 +1792,6 @@ window.addEventListener('keydown', (event) => {
     closeScaleRowModal();
   } else if (!revertConfirmModal.classList.contains('hidden')) {
     cancelRevert();
-  } else if (!resizeConfirmBackdrop.classList.contains('hidden')) {
-    hideResizeConfirm();
   }
 });
 
