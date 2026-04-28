@@ -230,6 +230,11 @@ function createFracDisplay(f) {
   const div = document.createElement('div');
   div.className = 'frac-display';
 
+  // frac-content is a tight inline wrapper around sign + fraction that
+  // receives the selection highlight — unlike frac-display which fills the cell.
+  const content = document.createElement('div');
+  content.className = 'frac-content';
+
   if (f.den === 1) {
     // Integer — wrap text in .frac-inner so the selection highlight
     // targets the same class as proper fractions.
@@ -237,8 +242,18 @@ function createFracDisplay(f) {
     const span = document.createElement('span');
     span.className = 'frac-inner';
     span.textContent = String(f.num);
-    div.appendChild(span);
+    content.appendChild(span);
   } else {
+    // For negative fractions render "− |num|/den" so the minus sits in
+    // front of the bar rather than in the numerator.
+    if (f.num < 0) {
+      const sign = document.createElement('span');
+      sign.className = 'frac-sign';
+      sign.setAttribute('aria-hidden', 'true');
+      sign.textContent = '−';
+      content.appendChild(sign);
+    }
+
     // Wrap in an inline-flex column so the bar auto-sizes to
     // max(numerator width, denominator width) via align-items: stretch.
     const inner = document.createElement('div');
@@ -246,7 +261,7 @@ function createFracDisplay(f) {
 
     const numSpan = document.createElement('span');
     numSpan.className = 'frac-num';
-    numSpan.textContent = String(f.num);
+    numSpan.textContent = String(Math.abs(f.num));
 
     const bar = document.createElement('span');
     bar.className = 'frac-bar';
@@ -259,8 +274,10 @@ function createFracDisplay(f) {
     inner.appendChild(numSpan);
     inner.appendChild(bar);
     inner.appendChild(denSpan);
-    div.appendChild(inner);
+    content.appendChild(inner);
   }
+
+  div.appendChild(content);
 
   return div;
 }
