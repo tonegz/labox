@@ -557,7 +557,6 @@ function cancelResize() {
   }
   resizeOverlay.classList.add('hidden');
   resizeDimensions.classList.add('hidden');
-  matrixContainer.classList.remove('bracket-resizing');
   clearResizeHighlights();
 }
 
@@ -570,7 +569,6 @@ function onResizeStart(event) {
   resizeStartY = event.clientY;
   resizeStartRows = state.matrix.length;
   resizeStartCols = state.matrix[0]?.length ?? 0;
-  matrixContainer.classList.add('bracket-resizing');
   updateResizeHandle();
   updateResizeOverlay(resizeStartRows, resizeStartCols);
 }
@@ -598,7 +596,6 @@ function onResizeEnd(event) {
   matrixResizeHandle.releasePointerCapture(event.pointerId);
   resizeOverlay.classList.add('hidden');
   resizeDimensions.classList.add('hidden');
-  matrixContainer.classList.remove('bracket-resizing');
   clearResizeHighlights();
 
   const newRows = currentResizeRows;
@@ -1855,8 +1852,7 @@ window.addEventListener('keydown', (event) => {
 });
 
 matrixResizeHandle.addEventListener('pointerdown', onResizeStart);
-matrixResizeHandle.addEventListener('pointerenter', () => matrixContainer.classList.add('bracket-resize-hover'));
-matrixResizeHandle.addEventListener('pointerleave', () => matrixContainer.classList.remove('bracket-resize-hover'));
+
 window.addEventListener('pointermove', onResizeMove);
 window.addEventListener('pointerup', onResizeEnd);
 window.addEventListener('pointercancel', onResizeEnd);
