@@ -204,7 +204,7 @@ p {
   font-weight: 600;
   color: #b91c1c;
   pointer-events: none;
-  z-index: 25;
+  z-index: 35;
   white-space: nowrap;
   opacity: 1;
   visibility: visible;
@@ -212,7 +212,7 @@ p {
 }
 
 #resize-warning-text {
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.30);
   backdrop-filter: blur(2px);
   border-radius: 6px;
   padding: 2px 10px;
@@ -222,6 +222,12 @@ p {
 .resize-warning-bar.warning-fade {
   opacity: 0;
   visibility: hidden;
+}
+
+@media (min-width: 600px) {
+  .resize-warning-bar {
+    font-size: 0.95rem;
+  }
 }
 
 /* Toast notification shown after data-losing resize */
@@ -340,6 +346,10 @@ p {
 
 .matrix-row.swap-nudge {
   transform: translateX(6px);
+}
+
+.matrix-row.swap-nudge .matrix-cell {
+  border-bottom: 1px solid #d1d5db;
 }
 
 .matrix-row.swap-target .row-header,
