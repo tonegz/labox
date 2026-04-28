@@ -145,6 +145,18 @@
     </div>
   </div>
 
+  <div id="revert-confirm-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="revert-confirm-title">
+    <div class="modal-content" style="width:min(360px,100%)">
+      <h3 id="revert-confirm-title">Revert matrix to earlier state</h3>
+      <p id="revert-confirm-text"></p>
+      <p style="color:#6b7280;font-size:0.9rem;margin-top:6px">This cannot be undone.</p>
+      <div class="confirm-actions" style="margin-top:20px">
+        <button id="revert-confirm-cancel" type="button" class="cancel-button" style="margin-top:0;width:auto">Cancel</button>
+        <button id="revert-confirm-ok" type="button">Revert</button>
+      </div>
+    </div>
+  </div>
+
   <div id="resize-confirm-backdrop" class="modal hidden" role="dialog" aria-modal="true">
     <div id="resize-confirm-modal" class="modal-content resize-confirm-modal" role="document">
       <p>Reducing the matrix to <strong id="resize-confirm-dims"></strong> will remove some non-empty cells.</p>

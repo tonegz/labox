@@ -178,6 +178,10 @@ const modalCancelActionButton = document.getElementById('modal-cancel-action');
 const rowMultiplierButtons = document.querySelectorAll('[data-multiplier]');
 const dragTip = document.getElementById('drag-tip');
 const historyList = document.getElementById('history-list');
+const revertConfirmModal = document.getElementById('revert-confirm-modal');
+const revertConfirmText = document.getElementById('revert-confirm-text');
+const revertConfirmOk = document.getElementById('revert-confirm-ok');
+const revertConfirmCancel = document.getElementById('revert-confirm-cancel');
 const fractionModeToggle = document.getElementById('fraction-mode-toggle');
 const matrixEditorPanel = matrixWrapper.closest('.panel');
 
@@ -849,13 +853,35 @@ function snapshotHistory(description) {
   renderHistoryPanel();
 }
 
+let pendingRevertIndex = null;
+
 function restoreToHistory(index) {
   if (index < 0 || index >= operationHistory.length || index === historyPosition) return;
+  pendingRevertIndex = index;
+  const desc = operationHistory[index].description;
+  revertConfirmText.textContent = `Revert the matrix to "${desc}"?`;
+  modalReturnFocusTo = document.activeElement;
+  revertConfirmModal.classList.remove('hidden');
+  revertConfirmOk.focus();
+}
+
+function applyRevert() {
+  const index = pendingRevertIndex;
+  pendingRevertIndex = null;
+  revertConfirmModal.classList.add('hidden');
+  restoreFocusFromModal();
+  if (index === null) return;
   state.matrix = deepCloneMatrix(operationHistory[index].matrix);
   operationHistory = operationHistory.slice(0, index + 1);
   historyPosition = index;
   renderMatrix();
   renderHistoryPanel();
+}
+
+function cancelRevert() {
+  pendingRevertIndex = null;
+  revertConfirmModal.classList.add('hidden');
+  restoreFocusFromModal();
 }
 
 function renderHistoryPanel() {
@@ -1582,6 +1608,7 @@ function focusFirstIn(container) {
 function getActiveModal() {
   if (!rowActionModal.classList.contains('hidden')) return rowActionModal;
   if (!scaleRowModal.classList.contains('hidden')) return scaleRowModal;
+  if (!revertConfirmModal.classList.contains('hidden')) return revertConfirmModal;
   if (!resizeConfirmBackdrop.classList.contains('hidden')) return resizeConfirmBackdrop;
   return null;
 }
@@ -1675,6 +1702,11 @@ resizeConfirmBackdrop.addEventListener('click', (event) => {
   }
 });
 
+// Revert-confirm modal buttons
+revertConfirmOk.addEventListener('click', applyRevert);
+revertConfirmCancel.addEventListener('click', cancelRevert);
+revertConfirmModal.addEventListener('click', (e) => { if (e.target === revertConfirmModal) cancelRevert(); });
+
 // Scale-row modal buttons
 scaleModalApply.addEventListener('click', applyScaleRowModal);
 scaleModalCancel.addEventListener('click', closeScaleRowModal);
@@ -1703,6 +1735,8 @@ window.addEventListener('keydown', (event) => {
     closeRowActionModal();
   } else if (!scaleRowModal.classList.contains('hidden')) {
     closeScaleRowModal();
+  } else if (!revertConfirmModal.classList.contains('hidden')) {
+    cancelRevert();
   } else if (!resizeConfirmBackdrop.classList.contains('hidden')) {
     hideResizeConfirm();
   }
