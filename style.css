@@ -349,6 +349,20 @@ p {
   transform: translateX(6px);
 }
 
+/* Row-header area: thin 1px bluish borders with subtle 3D bevel.
+   Light blue on top/left (highlight), deeper blue on bottom (shadow). */
+.matrix-cell.row-drag-handle,
+.matrix-cell.row-header {
+  border-top: 1px solid #b8cce8;
+}
+.matrix-cell.row-drag-handle {
+  border-left: 1px solid #b8cce8;
+}
+.matrix-row:last-child .matrix-cell.row-drag-handle,
+.matrix-row:last-child .matrix-cell.row-header {
+  border-bottom: 1px solid #b8cce8;
+}
+
 .matrix-row.swap-target .row-header,
 .matrix-row.swap-target .row-drag-handle,
 .matrix-cell.row-header.drag-over,
