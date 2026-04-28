@@ -802,6 +802,11 @@ function onCellKeyDown(event) {
   const cursorAtStart = start === 0 && end === 0;
   const cursorAtEnd = start === len && end === len;
 
+  // Consume the one-shot flag set by Enter so the next Left/Right navigates
+  // immediately regardless of where the cursor ended up after Enter.
+  const wasJustConfirmed = cellJustConfirmed;
+  cellJustConfirmed = false;
+
   if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
     event.preventDefault();
     let nextRow = row;
@@ -813,15 +818,15 @@ function onCellKeyDown(event) {
   }
 
   if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-    const triggerLeft = allSelected || cursorAtStart;
-    const triggerRight = allSelected || cursorAtEnd;
-    if ((event.key === 'ArrowLeft' && !triggerLeft)
-        || (event.key === 'ArrowRight' && !triggerRight)) return;
-    event.preventDefault();
+    const triggerLeft  = allSelected || cursorAtStart || wasJustConfirmed;
+    const triggerRight = allSelected || cursorAtEnd   || wasJustConfirmed;
+    if ((event.key === 'ArrowLeft'  && !triggerLeft)
+     || (event.key === 'ArrowRight' && !triggerRight)) return;
     let nextCol = col;
-    if (event.key === 'ArrowLeft' && col > 0) nextCol = col - 1;
+    if (event.key === 'ArrowLeft'  && col > 0)                  nextCol = col - 1;
     else if (event.key === 'ArrowRight' && col < totalCols - 1) nextCol = col + 1;
-    else return;
+    else return; // at edge — no preventDefault, browser collapses selection normally
+    event.preventDefault();
     focusCellAt(row, nextCol);
     return;
   }
@@ -837,15 +842,13 @@ function onCellKeyDown(event) {
       } else if (cell?.classList.contains('cell-editing')) {
         // Enter on editing → validate, commit, return to selected (stacked) view.
         exitCellEditing(input);
+        cellJustConfirmed = true;
       }
       return;
     }
-    // Non-fraction mode: toggle between all-selected and cursor-at-end.
-    if (allSelected) {
-      input.setSelectionRange(input.value.length, input.value.length);
-    } else {
-      input.select();
-    }
+    // Non-fraction mode: set flag so the next Left/Right navigates immediately.
+    input.select();
+    cellJustConfirmed = true;
   }
 }
 
@@ -931,6 +934,7 @@ let operationHistory = [];
 let historyPosition = -1;
 let editedRows = new Set();   // rows touched in the current edit session
 let focusCellValue = null;    // value snapshot taken at cell-focus time
+let cellJustConfirmed = false; // set by Enter; consumed by the next Left/Right press
 
 function deepCloneMatrix(matrix) {
   return matrix.map((row) =>
