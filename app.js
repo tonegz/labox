@@ -981,8 +981,9 @@ function addRow() {
 
 function removeRow() {
   if (state.matrix.length <= 1) return;
+  const removedRowNum = state.matrix.length; // 1-based, before pop
   state.matrix.pop();
-  snapshotHistory('Remove row');
+  snapshotHistory(`Remove row ${removedRowNum}`);
   renderMatrix();
 }
 
@@ -995,8 +996,9 @@ function addColumn() {
 function removeColumn() {
   const cols = state.matrix[0].length;
   if (cols <= 1) return;
+  const removedColNum = cols; // 1-based, before pop
   state.matrix.forEach((row) => row.pop());
-  snapshotHistory('Remove column');
+  snapshotHistory(`Remove column ${removedColNum}`);
   renderMatrix();
 }
 
