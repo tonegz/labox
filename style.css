@@ -160,6 +160,15 @@ p {
   display: none;
 }
 
+/* Cells that would be dropped by a resize-in-progress */
+.matrix-cell.cell-will-remove input {
+  color: #dc2626;
+  font-weight: 600;
+}
+.fraction-mode .matrix-cell.cell-will-remove .frac-display {
+  color: #dc2626;
+}
+
 .resize-dimensions {
   position: absolute;
   top: 10px;

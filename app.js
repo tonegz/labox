@@ -487,6 +487,20 @@ function updateResizeOverlay(newRows, newCols) {
 
   currentResizeRows = newRows;
   currentResizeCols = newCols;
+
+  // Highlight cells that would be removed (non-zero values outside the new bounds).
+  matrixContainer.querySelectorAll('.matrix-cell[data-col]').forEach((cell) => {
+    const r = Number(cell.dataset.row);
+    const c = Number(cell.dataset.col);
+    const willRemove = (r >= newRows || c >= newCols) && !isZeroValue(state.matrix[r]?.[c]);
+    cell.classList.toggle('cell-will-remove', willRemove);
+  });
+}
+
+function clearResizeHighlights() {
+  matrixContainer.querySelectorAll('.matrix-cell.cell-will-remove').forEach((cell) => {
+    cell.classList.remove('cell-will-remove');
+  });
 }
 
 function cancelResize() {
@@ -497,6 +511,7 @@ function cancelResize() {
     resizePointerId = null;
   }
   resizeOverlay.classList.add('hidden');
+  clearResizeHighlights();
 }
 
 function onResizeStart(event) {
@@ -534,6 +549,7 @@ function onResizeEnd(event) {
   resizePointerId = null;
   matrixResizeHandle.releasePointerCapture(event.pointerId);
   resizeOverlay.classList.add('hidden');
+  clearResizeHighlights();
 
   const newRows = currentResizeRows;
   const newCols = currentResizeCols;
