@@ -682,6 +682,11 @@ function onCellMouseDown(event) {
 
 function onCellFocus(event) {
   event.target.select();
+  // Snapshot the cell value so onCellBlur can detect whether it changed.
+  const rowIndex = Number(event.target.dataset.row);
+  const colIndex = Number(event.target.dataset.col);
+  const v = state.matrix[rowIndex]?.[colIndex];
+  focusCellValue = (v !== null && typeof v === 'object') ? { ...v } : v;
   // In fraction mode, mark the cell as "selected" (stacked view + highlight)
   // unless we're already in full editing mode (e.g. clicked directly to edit).
   if (state.fractionMode) {
@@ -807,6 +812,13 @@ function onCellBlur(event) {
       input.value = String(state.matrix[rowIndex][colIndex]);
     }
   }
+
+  // Record a history entry if the value actually changed.
+  const currentVal = state.matrix[rowIndex]?.[colIndex];
+  if (!cellValuesEqual(focusCellValue, currentVal)) {
+    recordCellEdit(rowIndex);
+  }
+  focusCellValue = null;
 }
 
 function onCellChange(event) {
@@ -839,6 +851,8 @@ function onCellChange(event) {
 
 let operationHistory = [];
 let historyPosition = -1;
+let editedRows = new Set();   // rows touched in the current edit session
+let focusCellValue = null;    // value snapshot taken at cell-focus time
 
 function deepCloneMatrix(matrix) {
   return matrix.map((row) =>
@@ -847,10 +861,39 @@ function deepCloneMatrix(matrix) {
 }
 
 function snapshotHistory(description) {
+  editedRows.clear();
   operationHistory = operationHistory.slice(0, historyPosition + 1);
   operationHistory.push({ description, matrix: deepCloneMatrix(state.matrix) });
   historyPosition = operationHistory.length - 1;
   renderHistoryPanel();
+}
+
+function editRowDescription() {
+  const sorted = [...editedRows].sort((a, b) => a - b).map((r) => r + 1);
+  if (sorted.length === 1) return `Edit row ${sorted[0]}`;
+  if (sorted.length === 2) return `Edit row ${sorted[0]} and row ${sorted[1]}`;
+  return `Edit row ${sorted[0]} – row ${sorted[sorted.length - 1]}`;
+}
+
+function recordCellEdit(rowIndex) {
+  editedRows.add(rowIndex);
+  const desc = editRowDescription();
+  const snapshot = deepCloneMatrix(state.matrix);
+  // If the last history entry is already an edit, update it in place.
+  if (historyPosition >= 0 && operationHistory[historyPosition].isEdit) {
+    operationHistory[historyPosition] = { description: desc, matrix: snapshot, isEdit: true };
+  } else {
+    operationHistory = operationHistory.slice(0, historyPosition + 1);
+    operationHistory.push({ description: desc, matrix: snapshot, isEdit: true });
+    historyPosition = operationHistory.length - 1;
+  }
+  renderHistoryPanel();
+}
+
+function cellValuesEqual(a, b) {
+  if (a === null || b === null) return a === b;
+  if (typeof a === 'object') return a.num === b.num && a.den === b.den;
+  return a === b;
 }
 
 let pendingRevertIndex = null;
