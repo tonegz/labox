@@ -142,6 +142,7 @@ const resizeConfirmCancel = document.getElementById('resize-confirm-cancel');
 const matrixResizeHandle = document.getElementById('matrix-resize-handle');
 const matrixSizeLabel = document.getElementById('matrix-size');
 const matrixJson = document.getElementById('matrix-json');
+const copyJsonBtn = document.getElementById('copy-json');
 
 const addRowButton = document.getElementById('add-row');
 const removeRowButton = document.getElementById('remove-row');
@@ -176,6 +177,7 @@ const modalSwapRowsButton = document.getElementById('modal-swap-rows');
 const modalCancelActionButton = document.getElementById('modal-cancel-action');
 const rowMultiplierButtons = document.querySelectorAll('[data-multiplier]');
 const dragTip = document.getElementById('drag-tip');
+const historyList = document.getElementById('history-list');
 const fractionModeToggle = document.getElementById('fraction-mode-toggle');
 const matrixEditorPanel = matrixWrapper.closest('.panel');
 
@@ -584,6 +586,7 @@ function resizeMatrix(rows, cols) {
     state.matrix.splice(rows);
   }
 
+  snapshotHistory(`Resize to ${rows}×${cols}`);
   renderMatrix();
 }
 
@@ -827,6 +830,59 @@ function onCellChange(event) {
 }
 
 // ---------------------------------------------------------------------------
+// Operation history
+// ---------------------------------------------------------------------------
+
+let operationHistory = [];
+let historyPosition = -1;
+
+function deepCloneMatrix(matrix) {
+  return matrix.map((row) =>
+    row.map((cell) => (cell !== null && typeof cell === 'object' ? { ...cell } : cell))
+  );
+}
+
+function snapshotHistory(description) {
+  operationHistory = operationHistory.slice(0, historyPosition + 1);
+  operationHistory.push({ description, matrix: deepCloneMatrix(state.matrix) });
+  historyPosition = operationHistory.length - 1;
+  renderHistoryPanel();
+}
+
+function restoreToHistory(index) {
+  if (index < 0 || index >= operationHistory.length || index === historyPosition) return;
+  state.matrix = deepCloneMatrix(operationHistory[index].matrix);
+  operationHistory = operationHistory.slice(0, index + 1);
+  historyPosition = index;
+  renderMatrix();
+  renderHistoryPanel();
+}
+
+function renderHistoryPanel() {
+  if (!historyList) return;
+  historyList.innerHTML = '';
+  operationHistory.forEach((entry, i) => {
+    const row = document.createElement('div');
+    row.className = 'history-entry' + (i === historyPosition ? ' current' : '');
+
+    const num = document.createElement('span');
+    num.className = 'history-entry-num';
+    num.textContent = i === 0 ? '·' : String(i);
+
+    const label = document.createElement('span');
+    label.textContent = entry.description;
+
+    row.appendChild(num);
+    row.appendChild(label);
+    if (i !== historyPosition) row.addEventListener('click', () => restoreToHistory(i));
+    historyList.appendChild(row);
+  });
+  if (historyList.lastElementChild) {
+    historyList.lastElementChild.scrollIntoView({ block: 'nearest' });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Matrix structural operations
 // ---------------------------------------------------------------------------
 
@@ -834,17 +890,20 @@ function addRow() {
   const cols = state.matrix[0].length;
   const newRow = Array.from({ length: cols }, () => zeroValue());
   state.matrix.push(newRow);
+  snapshotHistory('Add row');
   renderMatrix();
 }
 
 function removeRow() {
   if (state.matrix.length <= 1) return;
   state.matrix.pop();
+  snapshotHistory('Remove row');
   renderMatrix();
 }
 
 function addColumn() {
   state.matrix.forEach((row) => row.push(zeroValue()));
+  snapshotHistory('Add column');
   renderMatrix();
 }
 
@@ -852,6 +911,7 @@ function removeColumn() {
   const cols = state.matrix[0].length;
   if (cols <= 1) return;
   state.matrix.forEach((row) => row.pop());
+  snapshotHistory('Remove column');
   renderMatrix();
 }
 
@@ -893,10 +953,12 @@ function scaleRow() {
     const factor = parseFrac(scaleFactorInput.value);
     if (factor === null || fracIsZero(factor)) return;
     state.matrix[rowIndex] = state.matrix[rowIndex].map((v) => fracMul(v, factor));
+    snapshotHistory(`Scale Row ${rowIndex + 1} by ${fracToString(factor)}`);
   } else {
     const factor = Number(scaleFactorInput.value);
     if (Number.isNaN(factor)) return;
     state.matrix[rowIndex] = state.matrix[rowIndex].map((v) => v * factor);
+    snapshotHistory(`Scale Row ${rowIndex + 1} by ${factor}`);
   }
 
   renderMatrix();
@@ -906,9 +968,11 @@ function scaleRowByFactor(rowIndex, factor) {
   if (state.fractionMode) {
     if (fracIsZero(factor)) return;
     state.matrix[rowIndex] = state.matrix[rowIndex].map((v) => fracMul(v, factor));
+    snapshotHistory(`Scale Row ${rowIndex + 1} by ${fracToString(factor)}`);
   } else {
     if (factor === 0 || !Number.isFinite(factor)) return;
     state.matrix[rowIndex] = state.matrix[rowIndex].map((v) => v * factor);
+    snapshotHistory(`Scale Row ${rowIndex + 1} by ${factor}`);
   }
   renderMatrix();
 }
@@ -932,11 +996,14 @@ function addScaledRowWithFactor(target, source, factor) {
     state.matrix[target] = state.matrix[target].map((v, i) => {
       return fracAdd(v, fracMul(state.matrix[source][i], factor));
     });
+    const fs = fracToString(factor);
+    snapshotHistory(`Add ${fs === '1' ? '' : fs + ' × '}Row ${source + 1} to Row ${target + 1}`);
   } else {
     if (Number.isNaN(factor) || target === source) return;
     state.matrix[target] = state.matrix[target].map((v, i) => {
       return v + state.matrix[source][i] * factor;
     });
+    snapshotHistory(`Add ${factor} × Row ${source + 1} to Row ${target + 1}`);
   }
 
   renderMatrix();
@@ -950,6 +1017,7 @@ function swapRowsByIndex(a, b) {
   const rowB = rowWrappers[b];
   if (!rowA || !rowB) {
     [state.matrix[a], state.matrix[b]] = [state.matrix[b], state.matrix[a]];
+    snapshotHistory(`Swap Row ${a + 1} ↔ Row ${b + 1}`);
     renderMatrix();
     return;
   }
@@ -958,6 +1026,7 @@ function swapRowsByIndex(a, b) {
   const firstRectB = rowB.getBoundingClientRect();
 
   [state.matrix[a], state.matrix[b]] = [state.matrix[b], state.matrix[a]];
+  snapshotHistory(`Swap Row ${a + 1} ↔ Row ${b + 1}`);
 
   const nextA = rowA.nextSibling;
   const nextB = rowB.nextSibling;
@@ -1724,6 +1793,13 @@ addRowButton.addEventListener('click', addRow);
 removeRowButton.addEventListener('click', removeRow);
 addColButton.addEventListener('click', addColumn);
 removeColButton.addEventListener('click', removeColumn);
+copyJsonBtn.addEventListener('click', () => {
+  navigator.clipboard.writeText(matrixJson.textContent).then(() => {
+    const prev = copyJsonBtn.textContent;
+    copyJsonBtn.textContent = 'Copied!';
+    setTimeout(() => { copyJsonBtn.textContent = prev; }, 1500);
+  });
+});
 swapRowsButton.addEventListener('click', swapRows);
 scaleRowButton.addEventListener('click', scaleRow);
 addRowButtonTransform.addEventListener('click', addScaledRow);
@@ -1734,3 +1810,4 @@ addRowButtonTransform.addEventListener('click', addScaledRow);
 
 updateFractionModeUI();
 renderMatrix();
+snapshotHistory('Initial state');

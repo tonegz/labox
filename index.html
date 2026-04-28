@@ -84,10 +84,15 @@
           <p class="matrix-size" id="matrix-size"></p>
         </div>
 
-        <div class="panel info-panel matrix-summary-panel">
-          <h2>Matrix summary</h2>
-          <p>Use the buttons above to modify the matrix and perform row transformations.</p>
+        <div class="panel history-panel">
+          <h2>History</h2>
+          <div id="history-list" class="history-list"></div>
+        </div>
+
+        <div class="panel export-panel">
+          <h2>Export</h2>
           <pre id="matrix-json" class="matrix-json"></pre>
+          <button id="copy-json" type="button" class="copy-json-btn">Copy</button>
         </div>
       </div>
     </section>
