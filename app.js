@@ -471,7 +471,7 @@ function updateResizeOverlay(newRows, newCols) {
 
   const overlayLeft = cellRect ? cellRect.left - wrapperRect.left : 0;
   const overlayTop = cellRect ? cellRect.top - wrapperRect.top : 0;
-  const ZERO_DIM_PX = 6; // minimum sliver size so the outline stays visible at 0
+  const ZERO_DIM_PX = 12; // minimum sliver size so the outline stays visible at 0
   const width = newCols === 0 ? ZERO_DIM_PX : newCols * colWidth;
   const height = newRows === 0 ? ZERO_DIM_PX : newRows * rowHeight;
 
@@ -479,8 +479,18 @@ function updateResizeOverlay(newRows, newCols) {
   resizeOverlay.style.top = `${overlayTop}px`;
   resizeOverlay.style.width = `${width}px`;
   resizeOverlay.style.height = `${height}px`;
-  resizeDimensions.textContent = `${newRows}×${newCols}`;
   resizeOverlay.classList.remove('hidden');
+
+  // Label shows spring-back size and is positioned at the top-right corner of
+  // where the spring-back overlay would be (at least 1 in each dimension).
+  const labelCols = Math.max(1, newCols);
+  const labelRows = Math.max(1, newRows);
+  const labelRight = overlayLeft + labelCols * colWidth;
+  const labelTop = overlayTop + 10;
+  resizeDimensions.textContent = `${labelRows}×${labelCols}`;
+  resizeDimensions.style.left = `${labelRight}px`;
+  resizeDimensions.style.top = `${labelTop}px`;
+  resizeDimensions.classList.remove('hidden');
 
   currentResizeRows = newRows;
   currentResizeCols = newCols;
@@ -528,6 +538,7 @@ function cancelResize() {
     resizePointerId = null;
   }
   resizeOverlay.classList.add('hidden');
+  resizeDimensions.classList.add('hidden');
   clearResizeHighlights();
 }
 
@@ -566,6 +577,7 @@ function onResizeEnd(event) {
   resizePointerId = null;
   matrixResizeHandle.releasePointerCapture(event.pointerId);
   resizeOverlay.classList.add('hidden');
+  resizeDimensions.classList.add('hidden');
   clearResizeHighlights();
 
   const newRows = currentResizeRows;
