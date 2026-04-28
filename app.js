@@ -607,6 +607,12 @@ function onResizeEnd(event) {
 
   const lostData = (newRows < oldRows || newCols < oldCols) && hasNonZeroRemovedCells(newRows, newCols);
 
+  // Save scroll position before committing the resize. DOM mutations triggered
+  // here (history panel scrollIntoView, renderMatrix) can move the viewport —
+  // most noticeably on mobile — so we restore it afterwards.
+  const savedScrollX = window.scrollX;
+  const savedScrollY = window.scrollY;
+
   if (newRows === 0 && newCols === 0) {
     // Full clear: zero all cells and spring back to original size.
     const hadData = lostData; // lostData already checked hasNonZeroRemovedCells(0,0)
@@ -626,6 +632,10 @@ function onResizeEnd(event) {
     }
   }
   if (lostData) showResizeToast();
+
+  // Restore viewport position — must happen after all synchronous DOM work so
+  // any browser-initiated scroll (focus, scrollIntoView) is overridden.
+  window.scrollTo(savedScrollX, savedScrollY);
 }
 
 let resizeToastTimer = null;

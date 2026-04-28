@@ -216,18 +216,19 @@ p {
   gap: 10px;
 }
 
-/* Warning bar shown at the bottom of the matrix while dragging would remove data */
+/* Warning bar shown at the bottom of the viewport while dragging would remove data.
+   Fixed so it is always visible without causing the page to scroll. */
 .resize-warning-bar {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -10px;
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
   text-align: center;
   font-size: 0.8rem;
   font-weight: 600;
   color: #b91c1c;
   pointer-events: none;
-  z-index: 35;
+  z-index: 9000;
   white-space: nowrap;
   opacity: 1;
   visibility: visible;
