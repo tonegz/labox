@@ -1628,18 +1628,44 @@ function onRowDrop(event) {
     return;
   }
 
-  if (event.currentTarget.classList.contains('row-drag-handle')) {
-    swapRowsByIndex(sourceIndex, targetRow);
+  // Determine the intended action from the last recorded drag state and/or the
+  // drop's x-position (same zones as updateDragHover).
+  //
+  // We avoid relying solely on which element the drop event fired on because:
+  //   1. The cursor can drift a few pixels between the last dragover and the
+  //      actual release, landing on the row-header even though the tip said
+  //      "swap rows" (the swap zone is only 14 px wide).
+  //   2. Some touch-drag polyfills fire dragend before drop, clearing
+  //      currentDragTarget before onRowDrop runs.
+  //
+  // Priority: currentDragTarget (set by updateDragHover) → x-position fallback.
+  const containerRect = matrixContainer.getBoundingClientRect();
+  const dropX = event.clientX;
+
+  const inSwapZone =
+    (currentDragTarget?.type === 'row' && currentDragTarget.swapArea) ||
+    (currentDragTarget == null && dropX < containerRect.left + DRAG_HANDLE_WIDTH);
+
+  const inAddZone =
+    !inSwapZone && (
+      (currentDragTarget?.type === 'row' && !currentDragTarget.swapArea) ||
+      (currentDragTarget == null && dropX < containerRect.left + DRAG_HANDLE_WIDTH + ROW_HEADER_WIDTH)
+    );
+
+  if (inSwapZone) {
+    const swapTarget = currentDragTarget?.row ?? targetRow;
     clearDragTargetState();
+    swapRowsByIndex(sourceIndex, swapTarget);
     return;
   }
 
-  if (event.currentTarget.classList.contains('row-header')) {
+  if (inAddZone) {
+    clearDragTargetState();
     openRowActionModal(sourceIndex, targetRow);
-    clearDragTargetState();
     return;
   }
 
+  // Data-cell zone.
   const targetColAttr = event.currentTarget.dataset.col;
   if (typeof targetColAttr !== 'undefined') {
     const targetCol = Number(targetColAttr);
@@ -1656,8 +1682,9 @@ function onRowDrop(event) {
     return;
   }
 
-  swapRowsByIndex(sourceIndex, targetRow);
+  // Fallback — treat as add/modal.
   clearDragTargetState();
+  openRowActionModal(sourceIndex, targetRow);
 }
 
 // ---------------------------------------------------------------------------
