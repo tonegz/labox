@@ -1021,6 +1021,13 @@ function cancelRevert() {
 
 function renderHistoryPanel() {
   if (!historyList) return;
+
+  // Save page scroll position. Clearing + rebuilding innerHTML causes a brief
+  // layout-shift that can move the viewport, and scrollIntoView would drag the
+  // page to the history panel. We restore after all DOM work so neither happens.
+  const savedScrollX = window.scrollX;
+  const savedScrollY = window.scrollY;
+
   historyList.innerHTML = '';
   operationHistory.forEach((entry, i) => {
     const row = document.createElement('div');
@@ -1038,9 +1045,12 @@ function renderHistoryPanel() {
     if (i !== historyPosition) row.addEventListener('click', () => restoreToHistory(i));
     historyList.appendChild(row);
   });
-  if (historyList.lastElementChild) {
-    historyList.lastElementChild.scrollIntoView({ block: 'nearest' });
-  }
+
+  // Scroll the latest entry into view within the panel — not the page.
+  historyList.scrollTop = historyList.scrollHeight;
+
+  // Restore page scroll (undo any layout-shift drift).
+  window.scrollTo(savedScrollX, savedScrollY);
 }
 
 // ---------------------------------------------------------------------------
