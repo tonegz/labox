@@ -404,7 +404,7 @@ function renderMatrix() {
 
       const input = document.createElement('input');
       input.type = 'text';
-      input.inputMode = state.fractionMode ? 'text' : 'decimal';
+      input.inputMode = 'decimal';
       input.placeholder = '0';
       input.value = cellDisplayValue(value);
       input.dataset.row = rowIndex;
