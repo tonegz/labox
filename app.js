@@ -402,6 +402,9 @@ function renderMatrix() {
       cell.addEventListener('dragleave', onCellDragLeave);
       cell.addEventListener('dragover', onRowDragOver);
       cell.addEventListener('drop', onRowDrop);
+      // Prevent the cell (and its input) from acting as a drag source.
+      // Only row headers and drag handles should initiate drags.
+      cell.addEventListener('dragstart', (e) => e.preventDefault());
 
       const input = document.createElement('input');
       input.type = 'text';
@@ -420,6 +423,7 @@ function renderMatrix() {
       // mousedown fires before focus, so the cell is already .cell-editing when
       // onCellFocus runs and the input becomes visible immediately.
       input.addEventListener('mousedown', onCellMouseDown);
+      input.addEventListener('dragstart', (e) => e.preventDefault());
       cell.appendChild(input);
 
       if (state.fractionMode) {
