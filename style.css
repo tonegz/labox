@@ -63,11 +63,35 @@ p {
 }
 
 .panel {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+  border: none;
   border-radius: 0;
   padding: 14px 20px 20px;
   clip-path: polygon(20px 0%, 100% 0%, 100% 100%, 0% 100%, 0% 20px);
+}
+
+/* Border-sandwich: ::before = border colour fill, ::after = white fill 1px inset
+   with a slightly smaller inner chamfer. The 1px gap between them is the border,
+   all the way around including the diagonal cut. */
+.panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #e5e7eb;
+  z-index: -2;
+  pointer-events: none;
+}
+
+.panel::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  background: #ffffff;
+  clip-path: polygon(19px 0%, 100% 0%, 100% 100%, 0% 100%, 0% 19px);
+  z-index: -1;
+  pointer-events: none;
 }
 
 .matrix-panel-inner {
@@ -126,10 +150,18 @@ p {
 
   .panel {
     border-radius: 0;
+    background: #ffffff;
+    border-top: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e5e7eb;
     border-left: none;
     border-right: none;
     box-shadow: none;
     clip-path: none;
+  }
+
+  .panel::before,
+  .panel::after {
+    display: none;
   }
 
   .matrix-controls-panel {
@@ -342,31 +374,47 @@ p {
   margin-left: 0;
   padding: 0;
   clip-path: polygon(8px 0%, 100% 0%, 100% 100%, 0% 100%, 0% 8px);
-  border-right: none;
-  background: #eef2ff;
-  background-clip: padding-box;
+  background: transparent;
   overflow: hidden;
   cursor: grab;
   position: relative;
+  isolation: isolate;
   touch-action: none;
   height: calc(100% - 2px);
   align-self: center;
+}
+
+/* Same border-sandwich as panels, using the row-header border colour.
+   Right border omitted (inset: 1px 0 1px 1px) so the handle and row header
+   read as one continuous block with no dividing line between them. */
+.matrix-cell.row-drag-handle::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #b8cce8;
+  z-index: -2;
+  pointer-events: none;
+}
+
+.matrix-cell.row-drag-handle::after {
+  content: '';
+  position: absolute;
+  inset: 1px 0 1px 1px;
+  background: #eef2ff;
+  clip-path: polygon(7px 0%, 100% 0%, 100% 100%, 0% 100%, 0% 7px);
+  z-index: -1;
+  pointer-events: none;
 }
 
 .matrix-row.swap-nudge {
   transform: translateX(6px);
 }
 
-/* Row-header area: thin 1px bluish borders with subtle 3D bevel.
-   Light blue on top/left (highlight), deeper blue on bottom (shadow). */
-.matrix-cell.row-drag-handle,
+/* Row-header borders. The drag handle's borders are handled by its
+   ::before/::after sandwich; only the row-header cell needs explicit rules. */
 .matrix-cell.row-header {
   border-top: 1px solid #b8cce8;
 }
-.matrix-cell.row-drag-handle {
-  border-left: 1px solid #b8cce8;
-}
-.matrix-row:last-child .matrix-cell.row-drag-handle,
 .matrix-row:last-child .matrix-cell.row-header {
   border-bottom: 1px solid #b8cce8;
 }
@@ -742,12 +790,33 @@ select.flash {
 }
 
 .modal-content {
+  position: relative;
+  isolation: isolate;
   width: min(520px, 100%);
-  background: #ffffff;
+  background: transparent;
   border-radius: 0;
   padding: 16px 28px 28px;
   clip-path: polygon(20px 0%, 100% 0%, 100% 100%, 0% 100%, 0% 20px);
   filter: drop-shadow(0 24px 60px rgba(15, 23, 42, 0.18));
+}
+
+.modal-content::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #d1d5db;
+  z-index: -2;
+  pointer-events: none;
+}
+
+.modal-content::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  background: #ffffff;
+  clip-path: polygon(19px 0%, 100% 0%, 100% 100%, 0% 100%, 0% 19px);
+  z-index: -1;
+  pointer-events: none;
 }
 
 .modal-content h3 {
