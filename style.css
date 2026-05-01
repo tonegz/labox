@@ -672,7 +672,12 @@ select.flash {
 }
 
 .row-header.flash {
-  animation: flash-select 0.5s ease-out;
+  animation: flash-row-label 0.5s ease-out;
+}
+
+@keyframes flash-row-label {
+  0%   { color: #2563eb; }
+  100% { color: #1e3a8a; }
 }
 
 @keyframes flash-select {
