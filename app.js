@@ -1536,7 +1536,7 @@ function clearRowSwapTarget(rowWrapper) {
 // How many pixels to the left of the drag-handle column count as "swap zone".
 const SWAP_GUTTER_PX = 14;
 const DRAG_HANDLE_WIDTH = 14; // matches .matrix-cell.row-drag-handle { width: 14px }
-const ROW_HEADER_WIDTH = 58;  // matches .matrix-cell.row-header { width: 58px }
+const ROW_HEADER_WIDTH = 58;  // matches .matrix-cell.row-header margin box (55px + 3px margin-right)
 const SWAP_NUDGE_PX = 6;      // matches .matrix-row.swap-nudge { transform: translateX(6px) }
 
 // ---------------------------------------------------------------------------

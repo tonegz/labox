@@ -313,9 +313,14 @@ p {
 }
 
 .matrix-cell.row-header {
-  width: 58px;
-  min-width: 58px;
-  padding: 0 6px 0 4px;
+  width: 52px;
+  min-width: 52px;
+  padding: 0 2px 0 1px;
+  margin-right: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  height: calc(100% - 2px);
+  align-self: center;
   border-radius: 0;
   border-left: none;
   background: #eef2ff;
@@ -344,6 +349,8 @@ p {
   cursor: grab;
   position: relative;
   touch-action: none;
+  height: calc(100% - 2px);
+  align-self: center;
 }
 
 .matrix-row.swap-nudge {
