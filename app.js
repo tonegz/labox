@@ -131,6 +131,7 @@ const state = {
 // ---------------------------------------------------------------------------
 
 const matrixContainer = document.getElementById('matrix-container');
+const rowDragSwapZone = document.getElementById('row-drag-swap-zone');
 const matrixWrapper = document.getElementById('matrix-wrapper');
 const resizeOverlay = document.getElementById('resize-overlay');
 const resizeDimensions = document.getElementById('resize-dimensions');
@@ -1315,6 +1316,10 @@ function onRowDragStart(event) {
   event.dataTransfer.setDragImage(ghost, 0, 0);
   window.setTimeout(() => ghost.remove(), 0);
 
+  // Activate the full-height swap-zone overlay so any drop to the left of the
+  // drag-handle column reliably triggers a swap, regardless of which element
+  // the event would otherwise have fired on (nudge dead zones, element edges…).
+  showSwapDropZone();
 }
 
 function onRowDragOver(event) {
@@ -1351,10 +1356,14 @@ function updateDragHover(event) {
   }
 
   // Zone detection against fixed container coordinates (unaffected by row translate).
-  if (x < containerRect.left + DRAG_HANDLE_WIDTH) {
-    // Drag-handle column or gutter → swap
+  // Thresholds are widened by SWAP_NUDGE_PX because the swap-nudge transform
+  // shifts the target row's drag handle rightward by that amount — pointer
+  // events in [DRAG_HANDLE_WIDTH, DRAG_HANDLE_WIDTH + SWAP_NUDGE_PX) land on
+  // the visual drag handle after nudging, so they must be treated as swap zone.
+  if (x < containerRect.left + DRAG_HANDLE_WIDTH + SWAP_NUDGE_PX) {
+    // Drag-handle column (accounting for nudge offset) or gutter → swap
     setRowSwapTarget(rowWrapper, true, event);
-  } else if (x < containerRect.left + DRAG_HANDLE_WIDTH + ROW_HEADER_WIDTH) {
+  } else if (x < containerRect.left + DRAG_HANDLE_WIDTH + SWAP_NUDGE_PX + ROW_HEADER_WIDTH) {
     // Row-header column → add
     setRowSwapTarget(rowWrapper, false, event);
   } else {
@@ -1524,6 +1533,62 @@ function clearRowSwapTarget(rowWrapper) {
 const SWAP_GUTTER_PX = 14;
 const DRAG_HANDLE_WIDTH = 14; // matches .matrix-cell.row-drag-handle { width: 14px }
 const ROW_HEADER_WIDTH = 58;  // matches .matrix-cell.row-header { width: 58px }
+const SWAP_NUDGE_PX = 6;      // matches .matrix-row.swap-nudge { transform: translateX(6px) }
+
+// ---------------------------------------------------------------------------
+// Swap-zone overlay
+// ---------------------------------------------------------------------------
+
+/**
+ * Show the fixed-position swap-zone overlay for the duration of a row drag.
+ * Width is set to reach from the left page edge to the right side of the
+ * drag-handle column (accounting for the nudge offset), so any drop anywhere
+ * in that band is captured and treated as a swap — no element-boundary or
+ * nudge dead-zone ambiguity.
+ */
+function showSwapDropZone() {
+  const containerRect = matrixContainer.getBoundingClientRect();
+  // Right edge: just past the drag-handle column (accounting for nudge offset).
+  const right = containerRect.left + DRAG_HANDLE_WIDTH + SWAP_NUDGE_PX;
+  // Left edge: one row-header-width to the left of the container, but never
+  // off the page. This keeps the zone from sprawling across a wide left margin.
+  const left = Math.max(0, containerRect.left - ROW_HEADER_WIDTH);
+  rowDragSwapZone.style.left = `${left}px`;
+  rowDragSwapZone.style.width = `${right - left}px`;
+  rowDragSwapZone.style.display = 'block';
+}
+
+function hideSwapDropZone() {
+  rowDragSwapZone.style.display = 'none';
+}
+
+rowDragSwapZone.addEventListener('dragover', (event) => {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  updateDragHover(event);
+});
+
+rowDragSwapZone.addEventListener('dragleave', (event) => {
+  // Clear the tip when the cursor leaves the swap zone toward the left (i.e.
+  // relatedTarget is outside the panel). Moving rightward into the matrix is
+  // handled by the matrix's own dragenter handlers, so we leave that alone.
+  if (!matrixEditorPanel || !matrixEditorPanel.contains(event.relatedTarget)) {
+    clearDragTargetState();
+  }
+});
+
+rowDragSwapZone.addEventListener('drop', (event) => {
+  event.preventDefault();
+  const sourceIndex = dragSourceRow;
+  dragSourceRow = null;
+  const targetWrapper = getRowByLayoutY(event.clientY);
+  const targetIndex = targetWrapper ? Number(targetWrapper.dataset.row) : -1;
+  clearDragTargetState();
+  hideSwapDropZone();
+  if (targetIndex !== -1 && sourceIndex !== null && sourceIndex !== targetIndex) {
+    swapRowsByIndex(sourceIndex, targetIndex);
+  }
+});
 
 /**
  * Find which .matrix-row contains clientY, using offsetTop (layout position,
@@ -1548,7 +1613,11 @@ function getGutterSwapRow(event) {
   if (dragSourceRow === null) return null;
   const containerRect = matrixContainer.getBoundingClientRect();
   // Must be to the LEFT of the container and within the gutter band.
-  if (event.clientX >= containerRect.left) return null;
+  // The swap-nudge transform shifts the target row SWAP_NUDGE_PX to the right,
+  // leaving a dead zone inside the container's left edge where pointer events
+  // fall through to the container and bubble here instead of to onRowDrop.
+  // Extend the right boundary by the nudge amount so those drops are caught.
+  if (event.clientX >= containerRect.left + SWAP_NUDGE_PX) return null;
   if (event.clientX < containerRect.left - SWAP_GUTTER_PX) return null;
   // Find the row whose vertical bounds contain the cursor.
   const rows = matrixContainer.querySelectorAll('.matrix-row');
@@ -1640,12 +1709,12 @@ function onRowDrop(event) {
 
   const inSwapZone =
     (currentDragTarget?.type === 'row' && currentDragTarget.swapArea) ||
-    (currentDragTarget == null && dropX < containerRect.left + DRAG_HANDLE_WIDTH);
+    (currentDragTarget == null && dropX < containerRect.left + DRAG_HANDLE_WIDTH + SWAP_NUDGE_PX);
 
   const inAddZone =
     !inSwapZone && (
       (currentDragTarget?.type === 'row' && !currentDragTarget.swapArea) ||
-      (currentDragTarget == null && dropX < containerRect.left + DRAG_HANDLE_WIDTH + ROW_HEADER_WIDTH)
+      (currentDragTarget == null && dropX < containerRect.left + DRAG_HANDLE_WIDTH + SWAP_NUDGE_PX + ROW_HEADER_WIDTH)
     );
 
   if (inSwapZone) {
@@ -1899,7 +1968,10 @@ matrixResizeHandle.addEventListener('pointerdown', onResizeStart);
 window.addEventListener('pointermove', onResizeMove);
 window.addEventListener('pointerup', onResizeEnd);
 window.addEventListener('pointercancel', onResizeEnd);
-window.addEventListener('dragend', clearDragTargetState);
+window.addEventListener('dragend', () => {
+  clearDragTargetState();
+  hideSwapDropZone();
+});
 
 // Prevent the "no-parking" cursor anywhere on the page during a row drag.
 // Actual drop handling remains on the registered drop targets only.

@@ -372,6 +372,18 @@ p {
   border-color: #bfdbfe;
 }
 
+/* Swap-zone overlay: shown during row drags, covers left-page-edge → drag-handle
+   right edge so any drop in that band is unambiguously a swap. Width is set in JS
+   based on the matrix container's current position. */
+#row-drag-swap-zone {
+  display: none;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  z-index: 50;
+  /* left and width are set dynamically in JS — no background, purely an event-capture layer */
+}
+
 .drag-tip {
   position: absolute;
   pointer-events: none;
