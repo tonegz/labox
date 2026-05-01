@@ -434,7 +434,17 @@ p {
 
 .matrix-cell:focus-within {
   outline: none;
-  box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+
+/* Selection ring via ::after so it paints above the absolute-positioned input
+   in fraction editing mode (input z-index: 5 → ring z-index: 6). */
+.matrix-cell:focus-within::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.5);
+  pointer-events: none;
+  z-index: 6;
 }
 
 /* ---- Stacked fraction display ---- */
