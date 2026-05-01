@@ -1382,14 +1382,10 @@ function setCellDragTarget(cell, targetRow, targetCol, event) {
   const factor = computeCellFactor(dragSourceRow, targetRow, targetCol);
   const isValid = factor !== null;
 
-  let tipText = `add to row ${targetRow + 1}...`;
+  let tipText = `add row ${dragSourceRow + 1} to row ${targetRow + 1}...`;
   if (isValid) {
-    if (state.fractionMode) {
-      const fs = fracToString(factor);
-      tipText = `add ${fs == '1' ? '' : '' + fs + ' × '}to row ${targetRow + 1}`;
-    } else {
-      tipText = `${factor >= 0 ? '+' : ''}${factor}`;
-    }
+    const fs = state.fractionMode ? fracToString(factor) : String(factor);
+    tipText = `add ${fs == '1' ? '' : fs + ' × '}row ${dragSourceRow + 1} to row ${targetRow + 1}`;
   }
 
   currentDragTarget = {
@@ -1438,7 +1434,7 @@ function setSameRowScaleTarget(cell, rowIndex, colIndex, event) {
       const factorStr = state.fractionMode
         ? fracToString(factor)
         : String(Math.round(factor * 1e6) / 1e6);
-      tipText = `× ${factorStr}`;
+      tipText = `scale row by ${factorStr}`;
     }
   }
 
