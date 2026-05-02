@@ -104,6 +104,10 @@ p {
 .matrix-panel-inner {
   position: relative;
   overflow: visible;
+  /* Raise this panel's stacking context above sibling panels so the
+     resize overlay (position:absolute inside .matrix-wrapper) is never
+     clipped by a later-painted panel below it in the column. */
+  z-index: 1;
 }
 
 .matrix-wrapper {
@@ -356,17 +360,23 @@ p {
 }
 
 .matrix-cell.row-header {
-  width: 52px;
-  min-width: 52px;
-  padding: 0 2px 0 1px;
+  /* Combined drag-handle (14px) + label (52px) in one element; 6px gap before bracket. */
+  width: 66px;
+  min-width: 66px;
+  /* No left padding — .row-drag-zone child spans the left 14px instead,
+     ensuring pointer/drag events fire across the full element width. */
+  padding: 0 2px 0 0;
   margin-right: 6px;
   white-space: nowrap;
   overflow: hidden;
   height: calc(100% - 2px);
   align-self: center;
   border-radius: 0;
-  border-left: none;
-  background: #eef2ff;
+  /* Shape, fill, and all borders drawn by JS-generated SVG background-image. */
+  border: none;
+  background-color: transparent;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
   color: #1e3a8a;
   font-weight: 500;
   line-height: 1;
@@ -378,46 +388,33 @@ p {
   touch-action: none;
 }
 
-.matrix-cell.row-drag-handle {
-  width: 14px;
-  min-width: 14px;
-  margin-left: 0;
-  padding: 0;
-  clip-path: polygon(8px 0%, 100% 0%, 100% 100%, 0% 100%, 0% 8px);
-  background: #eef2ff;
-  background-clip: padding-box;
+/* Single draggable child span covers the full 66px width of the row header.
+   touch-action, cursor, user-select must be explicit — not inherited. */
+.matrix-cell.row-header .row-label {
+  flex: 1 1 auto;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  /* Indent text past the 14px drag-zone visual area. */
+  padding-left: 14px;
   overflow: hidden;
-  cursor: grab;
-  position: relative;
   touch-action: none;
-  height: calc(100% - 2px);
-  align-self: center;
+  cursor: grab;
+  user-select: none;
 }
 
 .matrix-row.swap-nudge {
   transform: translateX(6px);
 }
 
-/* Row-header area borders. Both drag handle and row header use plain CSS
-   borders so they render identically and form one seamless line. */
-.matrix-cell.row-drag-handle,
-.matrix-cell.row-header {
-  border-top: 1px solid #b8cce8;
-}
-.matrix-cell.row-drag-handle {
-  border-left: 1px solid #b8cce8;
-}
-.matrix-row:last-child .matrix-cell.row-drag-handle,
-.matrix-row:last-child .matrix-cell.row-header {
-  border-bottom: 1px solid #b8cce8;
-}
-
+/* All row-header borders are drawn by the SVG background-image.
+   Interactive states clear the SVG and fall back to clip-path + solid colours. */
 .matrix-row.swap-target .row-header,
-.matrix-row.swap-target .row-drag-handle,
-.matrix-cell.row-header.drag-over,
-.matrix-cell.row-drag-handle.drag-over {
-  background: #dbeafe;
-  border-color: #bfdbfe;
+.matrix-cell.row-header.drag-over {
+  background-image: none;
+  clip-path: polygon(8px 0%, 100% 0%, 100% 100%, 0% 100%, 0% 8px);
+  background-color: #dbeafe;
+  border: 1px solid #bfdbfe;
 }
 
 /* Swap-zone overlay: shown during row drags, covers left-page-edge → drag-handle

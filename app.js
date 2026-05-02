@@ -362,35 +362,36 @@ function renderMatrix() {
   state.matrix.forEach((row, rowIndex) => {
     const rowWrapper = document.createElement('div');
     rowWrapper.className = 'matrix-row';
-    rowWrapper.style.gridTemplateColumns = `auto auto repeat(${cols}, minmax(58px, 1fr))`;
+    rowWrapper.style.gridTemplateColumns = `auto repeat(${cols}, minmax(58px, 1fr))`;
     rowWrapper.dataset.row = rowIndex;
     rowWrapper.addEventListener('dragover', onRowDragOver);
     rowWrapper.addEventListener('dragenter', onRowDragEnter);
     rowWrapper.addEventListener('dragleave', onRowDragLeave);
 
-    const rowDragHandle = document.createElement('div');
-    rowDragHandle.className = 'matrix-cell row-drag-handle';
-    rowDragHandle.draggable = true;
-    rowDragHandle.dataset.row = rowIndex;
-    rowDragHandle.setAttribute('aria-label', `Drag row ${rowIndex + 1}`);
-    rowDragHandle.addEventListener('dragstart', onRowDragStart);
-    rowDragHandle.addEventListener('dragover', onRowDragOver);
-    rowDragHandle.addEventListener('drop', onRowDrop);
-    rowDragHandle.addEventListener('dragenter', onRowDragEnter);
-    rowDragHandle.addEventListener('dragleave', onRowDragLeave);
-    rowWrapper.appendChild(rowDragHandle);
-
+    // Single combined element: drag-handle zone (left 14px) + row label (right 52px).
+    // Two child spans ensure DOM content covers the full 66px width so pointer/drag
+    // events fire correctly even when the cursor is in the empty drag-zone area.
+    // The div itself is NOT draggable — only the two child spans are.
+    // Having nested draggable elements (parent + child both draggable) confuses
+    // Chrome and prevents drag from starting on the child. Keeping draggable only
+    // on the children avoids this conflict while still covering the full 66px width.
     const rowHeader = document.createElement('div');
     rowHeader.className = 'matrix-cell row-header';
-    rowHeader.textContent = `Row ${rowIndex + 1}`;
-    rowHeader.draggable = true;
     rowHeader.dataset.row = rowIndex;
     rowHeader.setAttribute('aria-label', `Drag row ${rowIndex + 1}`);
-    rowHeader.addEventListener('dragstart', onRowDragStart);
+    // dragover / drop / enter / leave don't require the element itself to be draggable.
     rowHeader.addEventListener('dragover', onRowDragOver);
     rowHeader.addEventListener('drop', onRowDrop);
     rowHeader.addEventListener('dragenter', onRowDragEnter);
     rowHeader.addEventListener('dragleave', onRowDragLeave);
+
+    const rowLabel = document.createElement('span');
+    rowLabel.className = 'row-label';
+    rowLabel.textContent = `Row ${rowIndex + 1}`;
+    rowLabel.draggable = true;
+    rowLabel.addEventListener('dragstart', onRowDragStart);
+    rowHeader.appendChild(rowLabel);
+
     rowWrapper.appendChild(rowHeader);
 
     row.forEach((value, colIndex) => {
@@ -459,6 +460,47 @@ function renderMatrix() {
 
   updateButtons();
   updateResizeHandle();
+  // Defer SVG background update until after layout so offsetHeight is available.
+  requestAnimationFrame(updateDragHandleSVGs);
+}
+
+// ---------------------------------------------------------------------------
+// SVG backgrounds for row drag handles
+// Generates a pixel-perfect SVG (exact element height) with:
+//   • a filled chamfered rectangle (#eef2ff, 8px top-left cut)
+//   • a border polyline on top + diagonal + left edges (#b8cce8, 1px)
+//   • for the last row only: an additional bottom border segment
+// ---------------------------------------------------------------------------
+function updateDragHandleSVGs() {
+  const headers = Array.from(matrixContainer.querySelectorAll('.row-header'));
+  if (!headers.length) return;
+
+  const h = headers[0].offsetHeight;
+  if (!h) return; // layout not ready yet
+
+  // W = 14px drag zone + 52px label zone (must match CSS width: 66px).
+  const W = 66, C = 8; // element width, chamfer size (px)
+  const FILL   = '#eef2ff';
+  const STROKE = '#b8cce8';
+
+  function makeSVGUrl() {
+    // Closed fill path covers the whole chamfered rectangle.
+    const fillPath = `M${C},0 L${W},0 L${W},${h} L0,${h} L0,${C} Z`;
+    // Closed border path traces all five edges: top, right, bottom, left, diagonal.
+    const borderPath = `M${C},0.5 L${W - 0.5},0.5 L${W - 0.5},${h - 0.5} L0.5,${h - 0.5} L0.5,${C} Z`;
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${h}">` +
+      `<path d="${fillPath}" fill="${FILL}"/>` +
+      `<path d="${borderPath}" fill="none" stroke="${STROKE}" stroke-width="1" stroke-linejoin="miter"/>` +
+      `</svg>`;
+    return `url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}")`;
+  }
+
+  const svgUrl = makeSVGUrl();
+
+  headers.forEach((el) => {
+    el.style.backgroundImage = svgUrl;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -472,22 +514,19 @@ function updateResizeHandle() {
 
 function getResizeMetrics() {
   const firstRow = matrixContainer.querySelector('.matrix-row');
-  const dragHandle = firstRow?.querySelector('.row-drag-handle');
-  const headerCell = firstRow?.querySelector('.row-header');
-  const firstDataCell = firstRow?.querySelector('.matrix-cell:nth-child(3)');
+  // Data cells are now nth-child(2) — row-header is the only pre-data column.
+  const firstDataCell = firstRow?.querySelector('.matrix-cell:nth-child(2)');
 
   return {
     rowHeight: firstRow?.getBoundingClientRect().height || 0,
     colWidth: firstDataCell?.getBoundingClientRect().width || 0,
-    dragHandleWidth: dragHandle?.getBoundingClientRect().width || 0,
-    headerWidth: headerCell?.getBoundingClientRect().width || 0,
   };
 }
 
 function updateResizeOverlay(newRows, newCols) {
   const { rowHeight, colWidth } = getResizeMetrics();
   const firstRow = matrixContainer.querySelector('.matrix-row');
-  const firstDataCell = firstRow?.querySelector('.matrix-cell:nth-child(3)');
+  const firstDataCell = firstRow?.querySelector('.matrix-cell:nth-child(2)');
   const wrapperRect = matrixWrapper.getBoundingClientRect();
   const cellRect = firstDataCell?.getBoundingClientRect();
 
@@ -1284,12 +1323,9 @@ function updateRowIndices() {
 
     const header = wrapper.querySelector('.row-header');
     if (header) {
-      header.textContent = `Row ${rowIndex + 1}`;
       header.dataset.row = rowIndex;
-    }
-    const dragHandle = wrapper.querySelector('.row-drag-handle');
-    if (dragHandle) {
-      dragHandle.dataset.row = rowIndex;
+      const lbl = header.querySelector('.row-label');
+      if (lbl) lbl.textContent = `Row ${rowIndex + 1}`;
     }
     wrapper.querySelectorAll('.matrix-cell[data-col]').forEach((cell) => {
       cell.dataset.row = rowIndex;
@@ -1305,7 +1341,10 @@ function updateRowIndices() {
 // ---------------------------------------------------------------------------
 
 function onRowDragStart(event) {
-  const rowIndex = Number(event.currentTarget.dataset.row);
+  // currentTarget is .row-label — read row index from
+  // the nearest .row-header ancestor.
+  const headerEl = event.currentTarget.closest('.row-header');
+  const rowIndex = Number(headerEl.dataset.row);
   dragSourceRow = rowIndex;
   event.dataTransfer.setData('text/plain', String(rowIndex));
   event.dataTransfer.effectAllowed = 'move';
@@ -1509,10 +1548,6 @@ function setRowSwapTarget(rowWrapper, isSwapArea = false, event = null) {
   clearDragTargetState();
   rowWrapper.classList.add('swap-target');
   if (isSwapArea) rowWrapper.classList.add('swap-nudge');
-  const handle = rowWrapper.querySelector('.row-drag-handle');
-  if (handle) {
-    handle.classList.add('swap-target');
-  }
 
   currentDragTarget = { type: 'row', row: rowIndex, rowWrapper, swapArea: isSwapArea };
   const tipText = isSwapArea ? '↑↓ swap rows' : 'add row...';
@@ -1527,16 +1562,12 @@ function setRowSwapTarget(rowWrapper, isSwapArea = false, event = null) {
 
 function clearRowSwapTarget(rowWrapper) {
   rowWrapper.classList.remove('swap-target', 'swap-nudge');
-  const handle = rowWrapper.querySelector('.row-drag-handle');
-  if (handle) {
-    handle.classList.remove('swap-target');
-  }
 }
 
 // How many pixels to the left of the drag-handle column count as "swap zone".
 const SWAP_GUTTER_PX = 14;
-const DRAG_HANDLE_WIDTH = 14; // matches .matrix-cell.row-drag-handle { width: 14px }
-const ROW_HEADER_WIDTH = 58;  // matches .matrix-cell.row-header margin box (55px + 3px margin-right)
+const DRAG_HANDLE_WIDTH = 14; // left drag zone within the combined row-header element
+const ROW_HEADER_WIDTH = 58;  // row-header margin box: 52px label + 6px margin-right (= 66px total - 14px drag zone + 6px gap)
 const SWAP_NUDGE_PX = 6;      // matches .matrix-row.swap-nudge { transform: translateX(6px) }
 
 // ---------------------------------------------------------------------------
