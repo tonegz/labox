@@ -2364,6 +2364,7 @@ document.addEventListener('touchmove', (event) => {
   }
 }, { passive: false });
 window.addEventListener('dragend', () => {
+  dragSourceRow = null;   // clear even when drag ends without a drop target
   clearDragTargetState();
   hideSwapDropZone();
 });
