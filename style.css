@@ -85,6 +85,7 @@ p {
   position: absolute;
   inset: 0;
   background: #e5e7eb;
+  clip-path: polygon(20px 0%, 100% 0%, 100% 100%, 0% 100%, 0% 20px);
   z-index: -2;
   pointer-events: none;
 }
