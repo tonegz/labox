@@ -68,8 +68,13 @@ p {
   background: transparent;
   border: none;
   border-radius: 0;
-  padding: 14px 20px 20px;
-  clip-path: polygon(20px 0%, 100% 0%, 100% 100%, 0% 100%, 0% 20px);
+  /* +1px on all sides vs the original 14px 20px 20px to compensate for the
+     removed border (border-box sizing means the old 1px border consumed space) */
+  padding: 15px 21px 21px;
+  /* No clip-path here — the chamfer lives on ::before/::after only, so a plain
+     box-shadow works without any filter trickery. The shadow is rectangular but
+     at 30px blur / 5% opacity the difference is invisible. */
+  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.05);
 }
 
 /* Border-sandwich: ::before = border colour fill, ::after = white fill 1px inset
@@ -157,6 +162,9 @@ p {
     border-right: none;
     box-shadow: none;
     clip-path: none;
+    filter: none;
+    /* restore original padding — mobile has real borders so no compensation needed */
+    padding: 14px 20px 20px;
   }
 
   .panel::before,
@@ -374,47 +382,30 @@ p {
   margin-left: 0;
   padding: 0;
   clip-path: polygon(8px 0%, 100% 0%, 100% 100%, 0% 100%, 0% 8px);
-  background: transparent;
+  background: #eef2ff;
+  background-clip: padding-box;
   overflow: hidden;
   cursor: grab;
   position: relative;
-  isolation: isolate;
   touch-action: none;
   height: calc(100% - 2px);
   align-self: center;
-}
-
-/* Same border-sandwich as panels, using the row-header border colour.
-   Right border omitted (inset: 1px 0 1px 1px) so the handle and row header
-   read as one continuous block with no dividing line between them. */
-.matrix-cell.row-drag-handle::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: #b8cce8;
-  z-index: -2;
-  pointer-events: none;
-}
-
-.matrix-cell.row-drag-handle::after {
-  content: '';
-  position: absolute;
-  inset: 1px 0 1px 1px;
-  background: #eef2ff;
-  clip-path: polygon(7px 0%, 100% 0%, 100% 100%, 0% 100%, 0% 7px);
-  z-index: -1;
-  pointer-events: none;
 }
 
 .matrix-row.swap-nudge {
   transform: translateX(6px);
 }
 
-/* Row-header borders. The drag handle's borders are handled by its
-   ::before/::after sandwich; only the row-header cell needs explicit rules. */
+/* Row-header area borders. Both drag handle and row header use plain CSS
+   borders so they render identically and form one seamless line. */
+.matrix-cell.row-drag-handle,
 .matrix-cell.row-header {
   border-top: 1px solid #b8cce8;
 }
+.matrix-cell.row-drag-handle {
+  border-left: 1px solid #b8cce8;
+}
+.matrix-row:last-child .matrix-cell.row-drag-handle,
 .matrix-row:last-child .matrix-cell.row-header {
   border-bottom: 1px solid #b8cce8;
 }

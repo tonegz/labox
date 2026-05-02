@@ -25,9 +25,6 @@
             <span id="resize-dimensions" class="resize-dimensions hidden"></span>
             <div id="drag-tip" class="drag-tip hidden"></div>
             <div id="matrix-resize-handle" class="matrix-resize-handle" title="Resize matrix"></div>
-            <div id="resize-warning-bar" class="resize-warning-bar hidden">
-              <span id="resize-warning-text"></span>
-            </div>
           </div>
         </div>
 
@@ -98,6 +95,12 @@
         </div>
       </div>
     </section>
+  <!-- Moved outside all panels so that filter: drop-shadow on .panel does not
+       create a new containing block that would break position:fixed here. -->
+  <div id="resize-warning-bar" class="resize-warning-bar hidden">
+    <span id="resize-warning-text"></span>
+  </div>
+
   </main>
 
   <div id="row-action-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="row-action-title">
