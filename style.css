@@ -12,6 +12,8 @@
 body {
   margin: 0;
   min-height: 100vh;
+  /* Prevent pull-to-refresh on mobile so upward cell-drags don't trigger it. */
+  overscroll-behavior-y: none;
 }
 
 .app-shell {

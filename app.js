@@ -2339,12 +2339,25 @@ window.addEventListener('pointerup', onResizeEnd);
 window.addEventListener('pointercancel', onResizeEnd);
 
 // Cell-drag pointer listeners (pointer-based, separate from HTML drag API)
-window.addEventListener('pointermove', onCellDragPointerMove);
+// {passive:false} is required so event.preventDefault() in the handler is honoured
+// by the browser (Chrome/Safari mark window pointermove passive by default).
+window.addEventListener('pointermove', onCellDragPointerMove, { passive: false });
 window.addEventListener('pointerup',   onCellDragPointerUp);
 window.addEventListener('pointercancel', () => {
   cellDragPendingStart = null;
   if (cellDragActive) cleanupCellDrag();
 });
+
+// On touch devices the browser drives scroll via *touch* events, not pointer events,
+// so preventDefault() on pointermove alone does not stop a scroll in progress.
+// A non-passive touchmove listener can veto the scroll even after it has started.
+// We prevent default as soon as a cell-touch is pending so the browser never
+// commits to a scroll gesture — this also kills pull-to-refresh on upward drags.
+document.addEventListener('touchmove', (event) => {
+  if (cellDragPendingStart || cellDragActive) {
+    event.preventDefault();
+  }
+}, { passive: false });
 window.addEventListener('dragend', () => {
   clearDragTargetState();
   hideSwapDropZone();
