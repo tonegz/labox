@@ -935,6 +935,12 @@ select.flash {
   display: none;
 }
 
+/* frac-display is display:none by default (needs .fraction-mode ancestor).
+   Inside the overlay we always want it visible. */
+.cell-drag-overlay .frac-display {
+  display: flex;
+}
+
 /* Each number is absolutely positioned to align with its matrix cell.
    left and width are set in JS from getBoundingClientRect(). */
 .cell-drag-overlay-cell {

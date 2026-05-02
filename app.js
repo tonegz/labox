@@ -1791,7 +1791,11 @@ function buildCellDragOverlay(sourceRow) {
     );
     const el = document.createElement('div');
     el.className = 'cell-drag-overlay-cell';
-    el.textContent = state.fractionMode ? fracToString(val) : String(val);
+    if (state.fractionMode) {
+      el.appendChild(createFracDisplay(val));
+    } else {
+      el.textContent = String(val);
+    }
     if (cellEl) {
       const r = cellEl.getBoundingClientRect();
       el.style.left  = `${r.left}px`;
@@ -1879,20 +1883,21 @@ function refreshCellDragOverlayCells() {
   const sourceRow = state.matrix[cellDragSourceRow];
 
   cellEls.forEach((el, i) => {
-    if (cellDragFactor !== null) {
-      const scaled = state.fractionMode
-        ? fracMul(sourceRow[i], cellDragFactor)
-        : sourceRow[i] * cellDragFactor;
-      el.textContent = state.fractionMode
-        ? fracToString(scaled)
-        : String(Math.round(scaled * 1e9) / 1e9 || 0);
-      el.classList.add('has-factor');
+    const val = cellDragFactor !== null
+      ? (state.fractionMode ? fracMul(sourceRow[i], cellDragFactor) : sourceRow[i] * cellDragFactor)
+      : sourceRow[i];
+
+    if (state.fractionMode) {
+      const existing = el.querySelector('.frac-display');
+      if (existing) existing.remove();
+      el.appendChild(createFracDisplay(val));
     } else {
-      el.textContent = state.fractionMode
-        ? fracToString(sourceRow[i])
-        : String(sourceRow[i]);
-      el.classList.remove('has-factor');
+      el.textContent = cellDragFactor !== null
+        ? String(Math.round(val * 1e9) / 1e9 || 0)
+        : String(val);
     }
+
+    el.classList.toggle('has-factor',    cellDragFactor !== null);
     el.classList.toggle('is-target-col', i === cellDragTargetCol && cellDragFactor !== null);
   });
 }
