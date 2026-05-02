@@ -967,6 +967,18 @@ select.flash {
   background: rgba(219, 234, 254, 0.55);
 }
 
+/* The single cell that will be zeroed by the operation.
+   Must out-specificity the target-row background rule above (0,3,0 → 0,4,0). */
+.matrix-row.cell-drag-target-row > .matrix-cell.cell-drag-zero-col {
+  background: #fee2e2;
+  box-shadow: inset 0 0 0 2px #dc2626;
+  z-index: 2;
+}
+/* Keep the value readable — don't let the blue focus ring compete */
+.matrix-row.cell-drag-target-row > .matrix-cell.cell-drag-zero-col:focus-within::after {
+  box-shadow: none;
+}
+
 /* Arrow SVG is fixed, full-viewport, non-interactive */
 .cell-drag-arrow-svg {
   position: fixed;

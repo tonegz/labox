@@ -1827,11 +1827,14 @@ function updateCellDragTarget(event) {
   // If nothing changed, skip re-render.
   if (targetRow === cellDragTargetRow && targetCol === cellDragTargetCol) return;
 
-  // Remove old highlight.
+  // Remove old highlights.
   if (cellDragTargetRow !== null) {
     matrixContainer
       .querySelector(`.matrix-row[data-row="${cellDragTargetRow}"]`)
       ?.classList.remove('cell-drag-target-row');
+    matrixContainer
+      .querySelector(`.matrix-cell[data-row="${cellDragTargetRow}"][data-col="${cellDragTargetCol}"]`)
+      ?.classList.remove('cell-drag-zero-col');
   }
 
   cellDragTargetRow = targetRow;
@@ -1842,6 +1845,13 @@ function updateCellDragTarget(event) {
     .querySelector(`.matrix-row[data-row="${targetRow}"]`)
     ?.classList.add('cell-drag-target-row');
 
+  // Highlight the specific cell that will be zeroed (only when a valid factor exists).
+  if (cellDragFactor !== null) {
+    matrixContainer
+      .querySelector(`.matrix-cell[data-row="${targetRow}"][data-col="${targetCol}"]`)
+      ?.classList.add('cell-drag-zero-col');
+  }
+
   refreshCellDragOverlayCells();
   refreshCellDragArrow();
 }
@@ -1851,6 +1861,9 @@ function clearCellDragTargetState() {
     matrixContainer
       .querySelector(`.matrix-row[data-row="${cellDragTargetRow}"]`)
       ?.classList.remove('cell-drag-target-row');
+    matrixContainer
+      .querySelector(`.matrix-cell[data-row="${cellDragTargetRow}"][data-col="${cellDragTargetCol}"]`)
+      ?.classList.remove('cell-drag-zero-col');
   }
   if (cellDragTargetRow === null && cellDragFactor === null) return; // already clear
   cellDragTargetRow = null;
@@ -1993,6 +2006,9 @@ function cleanupCellDrag() {
     matrixContainer
       .querySelector(`.matrix-row[data-row="${cellDragTargetRow}"]`)
       ?.classList.remove('cell-drag-target-row');
+    matrixContainer
+      .querySelector(`.matrix-cell[data-row="${cellDragTargetRow}"][data-col="${cellDragTargetCol}"]`)
+      ?.classList.remove('cell-drag-zero-col');
   }
   cellDragSourceRow = null;
   cellDragSourceCol = null;
