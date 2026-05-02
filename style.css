@@ -917,55 +917,49 @@ select.flash {
 
 /* ---- Cell drag (pointer-based row-elimination drag) ---- */
 
-/* Floating overlay that follows the cursor, showing (scaled) source-row values */
+/* Floating overlay: no background, just numbers floating at exact cell x-positions.
+   The container is fixed, full-width, height = one matrix row.
+   top is set in JS to track cursor Y (centred on cursor). */
 .cell-drag-overlay {
   position: fixed;
+  left: 0;
+  right: 0;
   pointer-events: none;
   z-index: 9100;
-  display: flex;
-  align-items: stretch;
-  gap: 3px;
-  background: rgba(219, 234, 254, 0.97);
-  border: 2.5px solid #2563eb;
-  border-radius: 6px;
-  padding: 5px;
-  box-shadow: 0 6px 22px rgba(15, 23, 42, 0.22);
-  /* Centered horizontally, positioned above the cursor */
-  transform: translate(-50%, calc(-100% - 14px));
-  font-size: 0.82rem;
-  font-weight: 600;
-  font-family: Inter, system-ui, sans-serif;
+  /* height and top set dynamically by JS */
 }
 
 .cell-drag-overlay.hidden {
   display: none;
 }
 
+/* Each number is absolutely positioned to align with its matrix cell.
+   left and width are set in JS from getBoundingClientRect(). */
 .cell-drag-overlay-cell {
-  min-width: 44px;
-  height: 36px;
+  position: absolute;
+  top: 0;
+  bottom: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 3px;
-  padding: 0 5px;
-  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  /* Match matrix cell input: same family, size, weight */
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 400;
+  color: #2563eb;         /* blue — distinct from the black matrix numbers */
   white-space: nowrap;
+  /* subtle text shadow so numbers stay readable over any background */
+  text-shadow: 0 0 6px rgba(255, 255, 255, 0.9);
 }
 
-/* Cells showing the scaled value (factor has been computed) */
+/* When a valid factor is active, make the numbers a touch bolder */
 .cell-drag-overlay-cell.has-factor {
-  background: #dbeafe;
-  border-color: #93c5fd;
+  font-weight: 600;
 }
 
-/* The column whose target cell will be zeroed */
+/* The column being zeroed stands out in a contrasting colour */
 .cell-drag-overlay-cell.is-target-col {
-  background: #1d4ed8;
-  color: #ffffff;
-  border-color: #1d4ed8;
+  color: #dc2626;
 }
 
 /* Highlight the target row while a cell drag is in progress */

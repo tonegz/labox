@@ -1778,19 +1778,36 @@ function startCellDrag(sourceRow, sourceCol, event) {
 function buildCellDragOverlay(sourceRow) {
   const overlay = document.getElementById('cell-drag-overlay');
   overlay.innerHTML = '';
-  state.matrix[sourceRow].forEach((val) => {
+
+  // Snapshot each data cell's horizontal position so the overlay numbers sit
+  // directly over their column regardless of where the cursor is horizontally.
+  const rowWrapper = matrixContainer.querySelector(`.matrix-row[data-row="${sourceRow}"]`);
+  const rowH = rowWrapper ? rowWrapper.getBoundingClientRect().height : 58;
+  overlay.style.height = `${rowH}px`;
+
+  state.matrix[sourceRow].forEach((val, i) => {
+    const cellEl = matrixContainer.querySelector(
+      `.matrix-cell[data-row="${sourceRow}"][data-col="${i}"]`
+    );
     const el = document.createElement('div');
     el.className = 'cell-drag-overlay-cell';
     el.textContent = state.fractionMode ? fracToString(val) : String(val);
+    if (cellEl) {
+      const r = cellEl.getBoundingClientRect();
+      el.style.left  = `${r.left}px`;
+      el.style.width = `${r.width}px`;
+    }
     overlay.appendChild(el);
   });
+
   overlay.classList.remove('hidden');
 }
 
 function moveCellDragOverlay(event) {
+  // Only the vertical position tracks the cursor; horizontal is fixed to column positions.
   const overlay = document.getElementById('cell-drag-overlay');
-  overlay.style.left = `${event.clientX}px`;
-  overlay.style.top  = `${event.clientY}px`;
+  const h = parseFloat(overlay.style.height) || 58;
+  overlay.style.top = `${event.clientY - h / 2}px`;
 }
 
 function updateCellDragTarget(event) {
