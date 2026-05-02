@@ -1979,11 +1979,14 @@ function refreshCellDragArrow() {
         dominant-baseline="middle">${factorLabel}</text>`;
   }
 
-  const W = window.innerWidth;
-  const H = window.innerHeight;
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  svg.setAttribute('width',  W);
-  svg.setAttribute('height', H);
+  // No viewBox, no width/height attributes — the SVG is sized by CSS (100vw × 100vh).
+  // Without a viewBox, SVG uses 1 unit = 1 CSS pixel, which matches the viewport
+  // coordinates returned by getBoundingClientRect(). Setting an explicit viewBox
+  // using window.innerWidth can produce a scale mismatch on mobile when
+  // 100vw ≠ window.innerWidth (e.g. when the matrix overflows the viewport).
+  svg.removeAttribute('viewBox');
+  svg.removeAttribute('width');
+  svg.removeAttribute('height');
   svg.classList.remove('hidden');
 
   svg.innerHTML = `
