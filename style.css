@@ -71,10 +71,11 @@ p {
   /* +1px on all sides vs the original 14px 20px 20px to compensate for the
      removed border (border-box sizing means the old 1px border consumed space) */
   padding: 15px 21px 21px;
-  /* No clip-path here — the chamfer lives on ::before/::after only, so a plain
-     box-shadow works without any filter trickery. The shadow is rectangular but
-     at 30px blur / 5% opacity the difference is invisible. */
-  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.05);
+  /* drop-shadow follows the actual painted shape of ::before/::after (which are
+     chamfer-clipped), so the shadow respects the cut corner and no shadow falls
+     in the transparent triangle. resize-warning-bar is outside .panel in the DOM
+     so filter here doesn't affect its position:fixed behaviour. */
+  filter: drop-shadow(0 6px 24px rgba(15, 23, 42, 0.05));
 }
 
 /* Border-sandwich: ::before = border colour fill, ::after = white fill 1px inset
