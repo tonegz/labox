@@ -167,6 +167,11 @@
        drop in that band reliably swaps, regardless of nudge offsets or which
        element the event would otherwise have fired on. -->
   <div id="row-drag-swap-zone"></div>
+  <!-- Cell-drag overlay: floats near cursor showing scaled source-row values -->
+  <div id="cell-drag-overlay" class="cell-drag-overlay hidden"></div>
+  <!-- Cell-drag arrow SVG: fixed full-viewport, drawn by JS -->
+  <svg id="cell-drag-arrow-svg" class="cell-drag-arrow-svg hidden"
+       xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
   <script type="module" src="drag-drop-touch.esm.min.js?autoload"></script>
   <script src="app.js"></script>
 </body>

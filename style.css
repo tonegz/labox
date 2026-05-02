@@ -914,3 +914,76 @@ select.flash {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- Cell drag (pointer-based row-elimination drag) ---- */
+
+/* Floating overlay that follows the cursor, showing (scaled) source-row values */
+.cell-drag-overlay {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9100;
+  display: flex;
+  align-items: stretch;
+  gap: 3px;
+  background: rgba(219, 234, 254, 0.97);
+  border: 2.5px solid #2563eb;
+  border-radius: 6px;
+  padding: 5px;
+  box-shadow: 0 6px 22px rgba(15, 23, 42, 0.22);
+  /* Centered horizontally, positioned above the cursor */
+  transform: translate(-50%, calc(-100% - 14px));
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.cell-drag-overlay.hidden {
+  display: none;
+}
+
+.cell-drag-overlay-cell {
+  min-width: 44px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 3px;
+  padding: 0 5px;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  white-space: nowrap;
+}
+
+/* Cells showing the scaled value (factor has been computed) */
+.cell-drag-overlay-cell.has-factor {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+/* The column whose target cell will be zeroed */
+.cell-drag-overlay-cell.is-target-col {
+  background: #1d4ed8;
+  color: #ffffff;
+  border-color: #1d4ed8;
+}
+
+/* Highlight the target row while a cell drag is in progress */
+.matrix-row.cell-drag-target-row > .matrix-cell[data-col] {
+  background: rgba(219, 234, 254, 0.55);
+}
+
+/* Arrow SVG is fixed, full-viewport, non-interactive */
+.cell-drag-arrow-svg {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9050;
+  overflow: visible;
+}
+
+.cell-drag-arrow-svg.hidden {
+  display: none;
+}

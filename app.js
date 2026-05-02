@@ -190,6 +190,16 @@ const matrixEditorPanel = matrixWrapper.closest('.panel');
 let dragSourceRow = null;
 let currentDragTarget = null;
 let isResizing = false;
+
+// Cell-drag state (pointer-based, separate from the HTML-drag-API row-header drag)
+let cellDragPendingStart = null; // { sourceRow, sourceCol, startX, startY } before threshold
+let cellDragActive = false;
+let cellDragSourceRow = null;
+let cellDragSourceCol = null;
+let cellDragTargetRow = null;
+let cellDragTargetCol = null;
+let cellDragFactor = null;
+const CELL_DRAG_THRESHOLD = 10; // px of movement to activate drag
 let resizePointerId = null;
 let resizeStartX = 0;
 let resizeStartY = 0;
@@ -406,6 +416,8 @@ function renderMatrix() {
       // Prevent the cell (and its input) from acting as a drag source.
       // Only row headers and drag handles should initiate drags.
       cell.addEventListener('dragstart', (e) => e.preventDefault());
+      // Pointer-based cell drag (row-elimination gesture)
+      cell.addEventListener('pointerdown', onCellPointerDown);
 
       const input = document.createElement('input');
       input.type = 'text';
@@ -1694,6 +1706,289 @@ function clearDragTargetState() {
   matrixContainer.querySelectorAll('.matrix-row.swap-target').forEach(clearRowSwapTarget);
 }
 
+// ---------------------------------------------------------------------------
+// Cell drag — pointer-based row-elimination gesture
+// ---------------------------------------------------------------------------
+
+function onCellPointerDown(event) {
+  if (event.button !== 0) return;
+  if (dragSourceRow !== null) return;   // row-header HTML-drag active
+  if (isResizing) return;
+  const cell = event.currentTarget;
+  if (cell.classList.contains('cell-editing')) return; // user is typing
+
+  cellDragPendingStart = {
+    sourceRow: Number(cell.dataset.row),
+    sourceCol: Number(cell.dataset.col),
+    startX: event.clientX,
+    startY: event.clientY,
+  };
+  // Do NOT preventDefault here — normal click/focus must still work.
+}
+
+function onCellDragPointerMove(event) {
+  if (!cellDragPendingStart && !cellDragActive) return;
+
+  if (cellDragPendingStart) {
+    const dx = event.clientX - cellDragPendingStart.startX;
+    const dy = event.clientY - cellDragPendingStart.startY;
+    if (Math.sqrt(dx * dx + dy * dy) >= CELL_DRAG_THRESHOLD) {
+      const { sourceRow, sourceCol } = cellDragPendingStart;
+      cellDragPendingStart = null;
+      startCellDrag(sourceRow, sourceCol, event);
+    }
+    return;
+  }
+
+  if (cellDragActive) {
+    event.preventDefault();
+    moveCellDragOverlay(event);
+    updateCellDragTarget(event);
+  }
+}
+
+function onCellDragPointerUp(event) {
+  if (cellDragPendingStart) {
+    cellDragPendingStart = null;
+    return; // was just a click — let normal focus/edit proceed
+  }
+  if (!cellDragActive) return;
+  event.preventDefault();
+  endCellDrag();
+}
+
+function startCellDrag(sourceRow, sourceCol, event) {
+  cellDragActive = true;
+  cellDragSourceRow = sourceRow;
+  cellDragSourceCol = sourceCol;
+  cellDragTargetRow = null;
+  cellDragTargetCol = null;
+  cellDragFactor = null;
+
+  // Deactivate any focused input so typing doesn't interfere.
+  if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+    document.activeElement.blur();
+  }
+
+  buildCellDragOverlay(sourceRow);
+  moveCellDragOverlay(event);
+  refreshCellDragArrow();
+}
+
+function buildCellDragOverlay(sourceRow) {
+  const overlay = document.getElementById('cell-drag-overlay');
+  overlay.innerHTML = '';
+  state.matrix[sourceRow].forEach((val) => {
+    const el = document.createElement('div');
+    el.className = 'cell-drag-overlay-cell';
+    el.textContent = state.fractionMode ? fracToString(val) : String(val);
+    overlay.appendChild(el);
+  });
+  overlay.classList.remove('hidden');
+}
+
+function moveCellDragOverlay(event) {
+  const overlay = document.getElementById('cell-drag-overlay');
+  overlay.style.left = `${event.clientX}px`;
+  overlay.style.top  = `${event.clientY}px`;
+}
+
+function updateCellDragTarget(event) {
+  // Temporarily hide the overlay so it doesn't block elementFromPoint.
+  const overlay = document.getElementById('cell-drag-overlay');
+  overlay.style.visibility = 'hidden';
+  const el = document.elementFromPoint(event.clientX, event.clientY);
+  overlay.style.visibility = '';
+
+  const cell = el?.closest?.('.matrix-cell[data-col]');
+  if (!cell) { clearCellDragTargetState(); return; }
+
+  const targetRow = Number(cell.dataset.row);
+  const targetCol = Number(cell.dataset.col);
+  if (targetRow === cellDragSourceRow) { clearCellDragTargetState(); return; }
+
+  // If nothing changed, skip re-render.
+  if (targetRow === cellDragTargetRow && targetCol === cellDragTargetCol) return;
+
+  // Remove old highlight.
+  if (cellDragTargetRow !== null) {
+    matrixContainer
+      .querySelector(`.matrix-row[data-row="${cellDragTargetRow}"]`)
+      ?.classList.remove('cell-drag-target-row');
+  }
+
+  cellDragTargetRow = targetRow;
+  cellDragTargetCol = targetCol;
+  cellDragFactor    = computeCellFactor(cellDragSourceRow, targetRow, targetCol);
+
+  matrixContainer
+    .querySelector(`.matrix-row[data-row="${targetRow}"]`)
+    ?.classList.add('cell-drag-target-row');
+
+  refreshCellDragOverlayCells();
+  refreshCellDragArrow();
+}
+
+function clearCellDragTargetState() {
+  if (cellDragTargetRow !== null) {
+    matrixContainer
+      .querySelector(`.matrix-row[data-row="${cellDragTargetRow}"]`)
+      ?.classList.remove('cell-drag-target-row');
+  }
+  if (cellDragTargetRow === null && cellDragFactor === null) return; // already clear
+  cellDragTargetRow = null;
+  cellDragTargetCol = null;
+  cellDragFactor    = null;
+  refreshCellDragOverlayCells();
+  refreshCellDragArrow();
+}
+
+function refreshCellDragOverlayCells() {
+  const overlay   = document.getElementById('cell-drag-overlay');
+  const cellEls   = overlay.querySelectorAll('.cell-drag-overlay-cell');
+  const sourceRow = state.matrix[cellDragSourceRow];
+
+  cellEls.forEach((el, i) => {
+    if (cellDragFactor !== null) {
+      const scaled = state.fractionMode
+        ? fracMul(sourceRow[i], cellDragFactor)
+        : sourceRow[i] * cellDragFactor;
+      el.textContent = state.fractionMode
+        ? fracToString(scaled)
+        : String(Math.round(scaled * 1e9) / 1e9 || 0);
+      el.classList.add('has-factor');
+    } else {
+      el.textContent = state.fractionMode
+        ? fracToString(sourceRow[i])
+        : String(sourceRow[i]);
+      el.classList.remove('has-factor');
+    }
+    el.classList.toggle('is-target-col', i === cellDragTargetCol && cellDragFactor !== null);
+  });
+}
+
+function refreshCellDragArrow() {
+  const svg = document.getElementById('cell-drag-arrow-svg');
+  if (!svg) return;
+
+  if (cellDragTargetRow === null || cellDragSourceRow === null) {
+    svg.classList.add('hidden');
+    return;
+  }
+
+  const containerRect = matrixContainer.getBoundingClientRect();
+  // Left edge of the right bracket serif (bracket right = container right + 9px of serif)
+  const bracketRight = containerRect.right + 9;
+
+  const srcWrapper = matrixContainer.querySelector(`.matrix-row[data-row="${cellDragSourceRow}"]`);
+  const tgtWrapper = matrixContainer.querySelector(`.matrix-row[data-row="${cellDragTargetRow}"]`);
+  if (!srcWrapper || !tgtWrapper) { svg.classList.add('hidden'); return; }
+
+  const srcRect = srcWrapper.getBoundingClientRect();
+  const tgtRect = tgtWrapper.getBoundingClientRect();
+  const srcY = srcRect.top + srcRect.height / 2;
+  const tgtY = tgtRect.top + tgtRect.height / 2;
+
+  const ARM  = 22;  // length of horizontal arm extending right from bracket
+  const AH   = 7;   // arrowhead half-height / depth
+  const clr  = cellDragFactor !== null ? '#2563eb' : '#9ca3af';
+
+  // Compute factor label string
+  let factorLabel;
+  if (cellDragFactor === null) {
+    factorLabel = '?';
+  } else if (state.fractionMode) {
+    factorLabel = fracToString(cellDragFactor);
+  } else {
+    const f = cellDragFactor;
+    factorLabel = String(Math.round(f * 1e9) / 1e9);
+  }
+
+  // Arrow geometry:
+  //   (bracketRight, srcY) → right → (bracketRight+ARM, srcY)
+  //   ↓/↑
+  //   (bracketRight+ARM, tgtY)
+  //   → left with arrowhead at (bracketRight, tgtY)
+  const x0 = bracketRight;
+  const x1 = bracketRight + ARM;
+  // Arrowhead tip is slightly inset so it doesn't obscure the bracket
+  const ahTipX = x0 + AH;
+
+  const pathD = `M${x0},${srcY} H${x1} V${tgtY} H${ahTipX}`;
+
+  // Arrowhead: triangle pointing left
+  const ahPoints = `${ahTipX + AH},${tgtY - AH} ${ahTipX},${tgtY} ${ahTipX + AH},${tgtY + AH}`;
+
+  // Factor label: centered vertically between src and tgt, to the right of the arm
+  const labelX = x1 + 10;
+  const labelY = (srcY + tgtY) / 2;
+
+  // If fraction (contains "/"), stack it — otherwise single line
+  let textSvg;
+  const slashIdx = factorLabel.indexOf('/');
+  if (slashIdx > 0) {
+    const top = factorLabel.slice(0, slashIdx);   // may start with '-'
+    const bot = factorLabel.slice(slashIdx + 1);
+    const lineH = 14;
+    textSvg = `
+      <line x1="${labelX}" y1="${labelY - 2}" x2="${labelX + 16}" y2="${labelY - 2}"
+            stroke="${clr}" stroke-width="1.5"/>
+      <text fill="${clr}" font-size="12" font-family="Inter,system-ui,sans-serif" font-weight="700"
+            text-anchor="middle">
+        <tspan x="${labelX + 8}" y="${labelY - 2 - 3}">${top}</tspan>
+        <tspan x="${labelX + 8}" y="${labelY - 2 + lineH}">${bot}</tspan>
+      </text>`;
+  } else {
+    textSvg = `<text x="${labelX}" y="${labelY}" fill="${clr}" font-size="14"
+        font-family="Inter,system-ui,sans-serif" font-weight="700"
+        dominant-baseline="middle">${factorLabel}</text>`;
+  }
+
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('width',  W);
+  svg.setAttribute('height', H);
+  svg.classList.remove('hidden');
+
+  svg.innerHTML = `
+    <path d="${pathD}" stroke="${clr}" stroke-width="2.5" fill="none"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <polygon points="${ahPoints}" fill="${clr}"/>
+    ${textSvg}
+  `;
+}
+
+function endCellDrag() {
+  const srcRow    = cellDragSourceRow;
+  const tgtRow    = cellDragTargetRow;
+  const factor    = cellDragFactor;
+  cleanupCellDrag();
+  if (srcRow !== null && tgtRow !== null && factor !== null) {
+    addScaledRowWithFactor(tgtRow, srcRow, factor);
+  }
+}
+
+function cleanupCellDrag() {
+  cellDragActive        = false;
+  cellDragPendingStart  = null;
+  if (cellDragTargetRow !== null) {
+    matrixContainer
+      .querySelector(`.matrix-row[data-row="${cellDragTargetRow}"]`)
+      ?.classList.remove('cell-drag-target-row');
+  }
+  cellDragSourceRow = null;
+  cellDragSourceCol = null;
+  cellDragTargetRow = null;
+  cellDragTargetCol = null;
+  cellDragFactor    = null;
+
+  const overlay = document.getElementById('cell-drag-overlay');
+  if (overlay) overlay.classList.add('hidden');
+  const arrowSvg = document.getElementById('cell-drag-arrow-svg');
+  if (arrowSvg) arrowSvg.classList.add('hidden');
+}
+
 function onRowDragEnter(event) {
   event.preventDefault();
   event.dataTransfer.dropEffect = 'move';
@@ -1987,6 +2282,12 @@ window.addEventListener('keydown', (event) => {
   }
   if (event.key !== 'Escape') return;
 
+  if (cellDragActive || cellDragPendingStart) {
+    cellDragPendingStart = null;
+    if (cellDragActive) cleanupCellDrag();
+    return;
+  }
+
   if (isResizing) {
     cancelResize();
   } else if (!rowActionModal.classList.contains('hidden')) {
@@ -2003,6 +2304,14 @@ matrixResizeHandle.addEventListener('pointerdown', onResizeStart);
 window.addEventListener('pointermove', onResizeMove);
 window.addEventListener('pointerup', onResizeEnd);
 window.addEventListener('pointercancel', onResizeEnd);
+
+// Cell-drag pointer listeners (pointer-based, separate from HTML drag API)
+window.addEventListener('pointermove', onCellDragPointerMove);
+window.addEventListener('pointerup',   onCellDragPointerUp);
+window.addEventListener('pointercancel', () => {
+  cellDragPendingStart = null;
+  if (cellDragActive) cleanupCellDrag();
+});
 window.addEventListener('dragend', () => {
   clearDragTargetState();
   hideSwapDropZone();
