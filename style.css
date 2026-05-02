@@ -971,7 +971,7 @@ select.flash {
    Must out-specificity the target-row background rule above (0,3,0 → 0,4,0). */
 .matrix-row.cell-drag-target-row > .matrix-cell.cell-drag-zero-col {
   background: #fee2e2;
-  box-shadow: inset 0 0 0 2px #dc2626;
+  box-shadow: inset 0 0 0 1px #dc2626;
   z-index: 2;
 }
 /* Keep the value readable — don't let the blue focus ring compete */
