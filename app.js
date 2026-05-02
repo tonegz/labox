@@ -2354,7 +2354,7 @@ window.addEventListener('pointercancel', () => {
 // We prevent default as soon as a cell-touch is pending so the browser never
 // commits to a scroll gesture — this also kills pull-to-refresh on upward drags.
 document.addEventListener('touchmove', (event) => {
-  if (cellDragPendingStart || cellDragActive) {
+  if (cellDragPendingStart || cellDragActive || isResizing) {
     event.preventDefault();
   }
 }, { passive: false });
