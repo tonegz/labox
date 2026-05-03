@@ -2601,13 +2601,17 @@ function setImportPanelOpen(open) {
   importPanelOpen = open;
   importPanelEl.classList.toggle('hidden', !open);
   importToggleBtn.classList.toggle('active-toggle', open);
-  if (open) importTextarea.focus();
+  if (open) {
+    setExportPanelOpen(false);
+    importTextarea.focus();
+  }
 }
 
 function setExportPanelOpen(open) {
   exportPanelOpen = open;
   exportPanelEl.classList.toggle('hidden', !open);
   exportToggleBtn.classList.toggle('active-toggle', open);
+  if (open) setImportPanelOpen(false);
 }
 
 importToggleBtn.addEventListener('click', () => setImportPanelOpen(!importPanelOpen));
