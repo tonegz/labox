@@ -2482,7 +2482,7 @@ function exportText() {
 // ---- Element parsing ----
 
 function parseImportElement(s) {
-  s = s.trim();
+  s = s.trim().replace(/−/g, '-'); // accept Unicode minus (U+2212) as ASCII minus
   if (s === '') return null;
   if (state.fractionMode) {
     return parseFrac(s);          // returns null for invalid input
@@ -2566,6 +2566,10 @@ function tryParseCSV(text) {
 }
 
 function tryParseText(text) {
+  // Normalise zero-width spaces (U+200B) to regular spaces so they act as
+  // cell separators just like any other whitespace.
+  text = text.replace(/​/g, ' ');
+
   // Two variants:
   // a) double-newline = new row, whitespace = new cell
   // b) single-newline = new row, whitespace = new cell (default)
