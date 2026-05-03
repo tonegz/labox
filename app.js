@@ -139,8 +139,6 @@ const resizeWarningBar = document.getElementById('resize-warning-bar');
 const resizeWarningText = document.getElementById('resize-warning-text');
 const matrixResizeHandle = document.getElementById('matrix-resize-handle');
 const matrixSizeLabel = document.getElementById('matrix-size');
-const matrixJson = document.getElementById('matrix-json');
-const copyJsonBtn = document.getElementById('copy-json');
 
 const addRowButton = document.getElementById('add-row');
 const removeRowButton = document.getElementById('remove-row');
@@ -224,14 +222,9 @@ function cellDisplayValue(v) {
   return state.fractionMode ? fracToString(v) : String(v);
 }
 
-function updateMatrixJson() {
-  if (state.fractionMode) {
-    const display = state.matrix.map((row) => row.map(fracToString));
-    matrixJson.textContent = JSON.stringify(display, null, 2);
-  } else {
-    matrixJson.textContent = JSON.stringify(state.matrix, null, 2);
-  }
-}
+// updateMatrixJson() retained as a no-op; the live JSON panel was replaced by
+// the Import / Export controls in the Matrix controls panel.
+function updateMatrixJson() {}
 
 /**
  * Build the static (non-editing) fraction display element for a cell.
@@ -2451,16 +2444,229 @@ addRowButton.addEventListener('click', addRow);
 removeRowButton.addEventListener('click', removeRow);
 addColButton.addEventListener('click', addColumn);
 removeColButton.addEventListener('click', removeColumn);
-copyJsonBtn.addEventListener('click', () => {
-  navigator.clipboard.writeText(matrixJson.textContent).then(() => {
-    const prev = copyJsonBtn.textContent;
-    copyJsonBtn.textContent = 'Copied!';
-    setTimeout(() => { copyJsonBtn.textContent = prev; }, 1500);
-  });
-});
 swapRowsButton.addEventListener('click', swapRows);
 scaleRowButton.addEventListener('click', scaleRow);
 addRowButtonTransform.addEventListener('click', addScaledRow);
+
+// ---------------------------------------------------------------------------
+// Import / Export
+// ---------------------------------------------------------------------------
+
+// ---- Format generation ----
+
+function exportJSON() {
+  const rows = state.fractionMode
+    ? state.matrix.map((r) => r.map(fracToString))
+    : state.matrix;
+  return JSON.stringify(rows);
+}
+
+function exportWolfram() {
+  return '{' + state.matrix.map((r) =>
+    '{' + r.map((v) => state.fractionMode ? fracToString(v) : String(v)).join(',') + '}'
+  ).join(',') + '}';
+}
+
+function exportCSV() {
+  return state.matrix.map((r) =>
+    r.map((v) => state.fractionMode ? fracToString(v) : String(v)).join(',')
+  ).join('\n');
+}
+
+function exportText() {
+  return state.matrix.map((r) =>
+    r.map((v) => state.fractionMode ? fracToString(v) : String(v)).join(' ')
+  ).join('\n');
+}
+
+// ---- Element parsing ----
+
+function parseImportElement(s) {
+  s = s.trim();
+  if (s === '') return null;
+  if (state.fractionMode) {
+    return parseFrac(s);          // returns null for invalid input
+  }
+  // Float mode: accept fractions like 2/7 and convert them
+  const f = parseFrac(s);
+  if (f !== null) return f.num / f.den;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+function validateMatrix(rows) {
+  if (!rows || rows.length === 0) return false;
+  const cols = rows[0].length;
+  if (cols === 0) return false;
+  return rows.every((r) => r.length === cols && r.every((v) => v !== null));
+}
+
+// ---- Format detection and parsing ----
+
+function detectAndParseMatrix(raw) {
+  const text = raw.trim();
+  if (!text) return null;
+
+  // JSON — try first; a leading [ is unambiguous
+  if (text.startsWith('[')) {
+    const m = tryParseJSON(text);
+    if (m) return { format: 'JSON', matrix: m };
+    return null;
+  }
+
+  // Wolfram — leading {{
+  if (text.startsWith('{{')) {
+    const m = tryParseWolfram(text);
+    if (m) return { format: 'Wolfram', matrix: m };
+    return null;
+  }
+
+  // CSV — commas present (but not Wolfram)
+  if (text.includes(',')) {
+    const m = tryParseCSV(text);
+    if (m) return { format: 'CSV', matrix: m };
+    return null;
+  }
+
+  // Plain text — whitespace / newline separated
+  const m = tryParseText(text);
+  if (m) return { format: 'Text', matrix: m };
+
+  return null;
+}
+
+function tryParseJSON(text) {
+  try {
+    const parsed = JSON.parse(text);
+    if (!Array.isArray(parsed) || !parsed.length || !Array.isArray(parsed[0])) return null;
+    const rows = parsed.map((r) =>
+      r.map((cell) => parseImportElement(String(cell)))
+    );
+    return validateMatrix(rows) ? rows : null;
+  } catch (_) { return null; }
+}
+
+function tryParseWolfram(text) {
+  // Expect {{ ... },{ ... }} — strip the outermost { }
+  if (!text.startsWith('{{') || !text.endsWith('}}')) return null;
+  const inner = text.slice(1, -1); // strips one level of braces
+  // Split on },{ boundaries (allow whitespace around commas)
+  const rowStrs = inner.split(/\}\s*,\s*\{/);
+  const rows = rowStrs.map((rs) => {
+    const clean = rs.replace(/^\{/, '').replace(/\}$/, '');
+    return clean.split(',').map((s) => parseImportElement(s.trim()));
+  });
+  return validateMatrix(rows) ? rows : null;
+}
+
+function tryParseCSV(text) {
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  const rows = lines.map((l) => l.split(',').map((s) => parseImportElement(s.trim())));
+  return validateMatrix(rows) ? rows : null;
+}
+
+function tryParseText(text) {
+  // Two variants:
+  // a) double-newline = new row, whitespace = new cell
+  // b) single-newline = new row, whitespace = new cell (default)
+  const useDoubleNewline = /\n\s*\n/.test(text);
+  const rowStrings = useDoubleNewline
+    ? text.split(/\n\s*\n/).map((b) => b.trim())
+    : text.split('\n').map((l) => l.trim());
+
+  const rows = rowStrings
+    .filter(Boolean)
+    .map((rs) => rs.split(/\s+/).map((s) => parseImportElement(s)));
+  return validateMatrix(rows) ? rows : null;
+}
+
+// ---- UI state ----
+
+let importPanelOpen = false;
+let exportPanelOpen = false;
+
+const importToggleBtn   = document.getElementById('import-toggle');
+const exportToggleBtn   = document.getElementById('export-toggle');
+const importPanelEl     = document.getElementById('import-panel-inline');
+const exportPanelEl     = document.getElementById('export-panel-inline');
+const importTextarea    = document.getElementById('import-textarea');
+const importExecuteBtn  = document.getElementById('import-execute');
+
+function setImportPanelOpen(open) {
+  importPanelOpen = open;
+  importPanelEl.classList.toggle('hidden', !open);
+  importToggleBtn.classList.toggle('active-toggle', open);
+  if (open) importTextarea.focus();
+}
+
+function setExportPanelOpen(open) {
+  exportPanelOpen = open;
+  exportPanelEl.classList.toggle('hidden', !open);
+  exportToggleBtn.classList.toggle('active-toggle', open);
+}
+
+importToggleBtn.addEventListener('click', () => setImportPanelOpen(!importPanelOpen));
+exportToggleBtn.addEventListener('click', () => setExportPanelOpen(!exportPanelOpen));
+
+// Update Import button label whenever the textarea changes
+importTextarea.addEventListener('input', () => {
+  const result = detectAndParseMatrix(importTextarea.value);
+  if (result) {
+    importExecuteBtn.innerHTML =
+      `Import<br><span class="import-btn-fmt">${result.format}</span>`;
+    importExecuteBtn.disabled = false;
+  } else {
+    importExecuteBtn.textContent = 'Import';
+    importExecuteBtn.disabled = true;
+  }
+});
+
+// Execute import
+importExecuteBtn.addEventListener('click', () => {
+  const result = detectAndParseMatrix(importTextarea.value);
+  if (!result) return;
+  const { matrix } = result;
+  const rows = matrix.length;
+  const cols = matrix[0].length;
+  state.matrix = matrix;
+  snapshotHistory(`Import ${rows}×${cols} matrix`);
+  renderMatrix();
+  // Reset and close the import panel
+  setImportPanelOpen(false);
+  importTextarea.value = '';
+  importExecuteBtn.textContent = 'Import';
+  importExecuteBtn.disabled = true;
+});
+
+// Export buttons
+function copyAndToast(text, label) {
+  navigator.clipboard.writeText(text).then(() => showExportToast(`${label} copied to clipboard`));
+}
+
+document.getElementById('export-json').addEventListener('click',
+  () => copyAndToast(exportJSON(), 'JSON'));
+document.getElementById('export-wolfram').addEventListener('click',
+  () => copyAndToast(exportWolfram(), 'Wolfram'));
+document.getElementById('export-csv').addEventListener('click',
+  () => copyAndToast(exportCSV(), 'CSV'));
+document.getElementById('export-text').addEventListener('click',
+  () => copyAndToast(exportText(), 'Text'));
+
+// Toast for export confirmations (reuses the resize-toast style)
+let exportToastTimer = null;
+function showExportToast(msg) {
+  document.querySelectorAll('.export-copy-toast').forEach((el) => el.remove());
+  if (exportToastTimer) { clearTimeout(exportToastTimer); exportToastTimer = null; }
+  const toast = document.createElement('div');
+  toast.className = 'resize-toast export-copy-toast';
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  exportToastTimer = setTimeout(() => {
+    toast.classList.add('toast-fade');
+    toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+    exportToastTimer = null;
+  }, 2000);
+}
 
 // ---------------------------------------------------------------------------
 // Boot
