@@ -2673,6 +2673,57 @@ function showExportToast(msg) {
 }
 
 // ---------------------------------------------------------------------------
+// Text drag-and-drop import
+// ---------------------------------------------------------------------------
+
+function applyDropImport(raw) {
+  const result = detectAndParseMatrix(raw);
+  if (!result) return false;
+  const { format, matrix } = result;
+  const rows = matrix.length;
+  const cols = matrix[0].length;
+  state.matrix = matrix;
+  snapshotHistory(`Import ${rows}×${cols} matrix`);
+  renderMatrix();
+  showExportToast(`Imported ${rows}×${cols} ${format} matrix`);
+  return true;
+}
+
+function hasTextType(dataTransfer) {
+  return Array.from(dataTransfer.types).some((t) => t === 'text/plain' || t === 'text');
+}
+
+function setupDropTarget(el, highlightClass) {
+  el.addEventListener('dragover', (e) => {
+    if (!hasTextType(e.dataTransfer)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  });
+
+  el.addEventListener('dragenter', (e) => {
+    if (!hasTextType(e.dataTransfer)) return;
+    e.preventDefault();
+    el.classList.add(highlightClass);
+  });
+
+  el.addEventListener('dragleave', (e) => {
+    if (!el.contains(e.relatedTarget)) {
+      el.classList.remove(highlightClass);
+    }
+  });
+
+  el.addEventListener('drop', (e) => {
+    el.classList.remove(highlightClass);
+    e.preventDefault();
+    const text = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text');
+    if (text) applyDropImport(text);
+  });
+}
+
+setupDropTarget(importToggleBtn, 'drop-active');
+setupDropTarget(document.getElementById('matrix-wrapper'), 'matrix-drop-active');
+
+// ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
 

@@ -1045,3 +1045,18 @@ select.flash {
 .cell-drag-arrow-svg.hidden {
   display: none;
 }
+
+/* ---- Text drag-and-drop import highlights ---- */
+
+/* Import button: dashed ring while text is dragged over it */
+#import-toggle.drop-active {
+  background: #1d4ed8;
+  outline: 2px dashed #93c5fd;
+  outline-offset: 3px;
+}
+
+/* Matrix wrapper: dashed border overlay while text is dragged over it.
+   Uses box-shadow so it doesn't affect layout or clip the bracket decorations. */
+.matrix-wrapper.matrix-drop-active {
+  box-shadow: 0 0 0 2px #2563eb, 0 0 0 5px rgba(219, 234, 254, 0.6);
+}
