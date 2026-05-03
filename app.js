@@ -2683,6 +2683,7 @@ function applyDropImport(raw) {
   const { format, matrix } = result;
   const rows = matrix.length;
   const cols = matrix[0].length;
+  if (rows === 1 && cols === 1) return false; // single value — too likely to be accidental
   state.matrix = matrix;
   snapshotHistory(`Import ${rows}×${cols} matrix`);
   renderMatrix();
