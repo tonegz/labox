@@ -1352,6 +1352,7 @@ function onRowDragStart(event) {
   const rowIndex = Number(headerEl.dataset.row);
   dragSourceRow = rowIndex;
   event.dataTransfer.setData('text/plain', String(rowIndex));
+  event.dataTransfer.setData('application/x-labox-row', String(rowIndex));
   event.dataTransfer.effectAllowed = 'move';
 
   const rowWrapper = event.currentTarget.closest('.matrix-row');
@@ -2693,15 +2694,19 @@ function hasTextType(dataTransfer) {
   return Array.from(dataTransfer.types).some((t) => t === 'text/plain' || t === 'text');
 }
 
+function isInternalRowDrag(dataTransfer) {
+  return Array.from(dataTransfer.types).includes('application/x-labox-row');
+}
+
 function setupDropTarget(el, highlightClass) {
   el.addEventListener('dragover', (e) => {
-    if (!hasTextType(e.dataTransfer)) return;
+    if (isInternalRowDrag(e.dataTransfer) || !hasTextType(e.dataTransfer)) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
   });
 
   el.addEventListener('dragenter', (e) => {
-    if (!hasTextType(e.dataTransfer)) return;
+    if (isInternalRowDrag(e.dataTransfer) || !hasTextType(e.dataTransfer)) return;
     e.preventDefault();
     el.classList.add(highlightClass);
   });
@@ -2714,6 +2719,7 @@ function setupDropTarget(el, highlightClass) {
 
   el.addEventListener('drop', (e) => {
     el.classList.remove(highlightClass);
+    if (isInternalRowDrag(e.dataTransfer)) return;
     e.preventDefault();
     const text = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text');
     if (text) applyDropImport(text);
